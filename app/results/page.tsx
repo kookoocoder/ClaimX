@@ -302,23 +302,6 @@ export default function Results() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-indigo-100 p-2 rounded-full">
-                          <Info className="h-5 w-5 text-indigo-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Description</p>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-sm text-gray-700">
-                          This meme was created by @{analysisResult.finalMatch.creator} and was originally posted on {formatDate(analysisResult.finalMatch.uploadDate)}. 
-                          {analysisResult.matchResult.explanation && (
-                            <span> {analysisResult.matchResult.explanation}</span>
-                          )}
-                        </p>
-                      </div>
-
                       <div className="mt-4">
                         <p className="text-sm font-medium text-gray-500 mb-2">Matching Features</p>
                         <div className="space-y-2">
