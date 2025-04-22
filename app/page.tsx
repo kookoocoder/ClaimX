@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Upload, X, FileUp, AlertCircle } from "lucide-react"
@@ -18,6 +18,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  // Clean up preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -58,10 +68,22 @@ export default function Home() {
       return
     }
 
+    // Release the old preview URL if it exists
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+
+    // Create a new preview URL
+    const newPreviewUrl = URL.createObjectURL(file)
+    setPreviewUrl(newPreviewUrl)
     setFile(file)
   }
 
   const removeFile = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+    setPreviewUrl(null)
     setFile(null)
     setError(null)
   }
@@ -72,24 +94,64 @@ export default function Home() {
     else return (bytes / 1048576).toFixed(2) + " MB"
   }
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!file) return
 
     setIsUploading(true)
+    setUploadProgress(0)
 
-    // Simulate upload progress
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += 5
-      setUploadProgress(progress)
+    // Create form data for the API call
+    const formData = new FormData()
+    formData.append("file", file)
 
-      if (progress >= 100) {
-        clearInterval(interval)
-        setTimeout(() => {
-          router.push("/results")
-        }, 500)
+    try {
+      // Store the image in local storage for display on results page
+      if (previewUrl) {
+        localStorage.setItem("uploadedImage", previewUrl)
       }
-    }, 100)
+
+      // Track upload progress
+      let progress = 0
+      const progressInterval = setInterval(() => {
+        progress += 5
+        if (progress >= 90) {
+          clearInterval(progressInterval)
+        }
+        setUploadProgress(progress)
+      }, 100)
+
+      // Send the image to our API
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      })
+
+      clearInterval(progressInterval)
+      setUploadProgress(95)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to analyze image")
+      }
+
+      // Get the analysis results
+      const result = await response.json()
+      
+      // Store the results in local storage for the results page
+      localStorage.setItem("analysisResult", JSON.stringify(result))
+      
+      // Complete the progress bar
+      setUploadProgress(100)
+      
+      // Wait a moment before navigating
+      setTimeout(() => {
+        router.push("/results")
+      }, 500)
+    } catch (error) {
+      console.error("Error analyzing image:", error)
+      setError((error as Error).message || "Failed to analyze image")
+      setIsUploading(false)
+    }
   }
 
   return (
@@ -145,7 +207,7 @@ export default function Home() {
                 <div className="flex flex-col items-center w-full">
                   <div className="relative w-full max-w-[200px] aspect-square mb-4">
                     <Image
-                      src={URL.createObjectURL(file) || "/placeholder.svg"}
+                      src={previewUrl || "/placeholder.svg"}
                       alt="Preview"
                       fill
                       className="object-contain rounded-md"
@@ -174,7 +236,7 @@ export default function Home() {
           {isUploading && (
             <div className="mt-4">
               <div className="flex justify-between text-xs mb-1">
-                <span>Uploading...</span>
+                <span>{uploadProgress < 100 ? "Analyzing..." : "Complete!"}</span>
                 <span>{uploadProgress}%</span>
               </div>
               <Progress value={uploadProgress} className="h-2" />
