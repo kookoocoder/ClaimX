@@ -2,13 +2,13 @@ import type React from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import SplineBackground from "@/components/SplineBackground"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
   title: "ClaimX - AI-powered meme authorship attribution",
   description: "Attribute memes to their rightful creators using AI",
-  generator: 'v0.dev'
 };
 
 export default function RootLayout({
@@ -19,9 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body className={inter.className}>
+      <body className={`${inter.className}`}>
+        <SplineBackground />
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+          {children}m
         </ThemeProvider>
       </body>
     </html>

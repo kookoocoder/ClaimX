@@ -11,6 +11,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { createClient } from "@/lib/supabase/client"
 import type { Session } from '@supabase/supabase-js'
+import Header from "@/components/header"
+import Footer from "@/components/footer"
+import FeatureSection from "@/components/feature-section"
+import { storeImage, fileToDataUrl, storeFileAsDataUrl } from "@/lib/imageStorage"
 
 // Helper function for delays
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -141,35 +145,49 @@ export default function Home() {
        clearTimeout(analysisTimeoutRef.current);
     }
 
-    if (previewUrl) {
-      localStorage.setItem("uploadedImage", previewUrl)
-    }
-
-    const formData = new FormData()
-    formData.append("file", file)
-
-    analysisTimeoutRef.current = window.setTimeout(() => {
-      setUploadProgress(5);
-      setUploadStatusText("Uploading image...");
-      analysisTimeoutRef.current = window.setTimeout(() => {
-        setUploadProgress(25);
-        setUploadStatusText("Analyzing image content (Agent 1)... ");
-        analysisTimeoutRef.current = window.setTimeout(() => {
-          setUploadProgress(50);
-          setUploadStatusText("Matching against dataset (Agent 2)...");
-          analysisTimeoutRef.current = window.setTimeout(() => {
-            setUploadProgress(75);
-            setUploadStatusText("Finding closest match (Agent 3)...");
-             analysisTimeoutRef.current = window.setTimeout(() => {
-                setUploadProgress(90);
-                setUploadStatusText("Generating final analysis (Agent 4)...");
-             }, 4000);
-          }, 5000);
-        }, 3000);
-      }, 500);
-    }, 100);
-
     try {
+      // Store the image for reliable access in results page
+      // Store as data URL (most reliable method)
+      if (file) {
+        try {
+          // Primary storage as data URL
+          await storeFileAsDataUrl(file, "uploadedImageData")
+          console.log("Image stored as data URL successfully")
+          
+          // Backup storage as blob URL
+          if (previewUrl) {
+            storeImage(previewUrl)
+          }
+        } catch (err) {
+          console.error("Failed to store image:", err)
+          // Continue anyway, the analysis can still work
+        }
+      }
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      analysisTimeoutRef.current = window.setTimeout(() => {
+        setUploadProgress(5);
+        setUploadStatusText("Uploading image...");
+        analysisTimeoutRef.current = window.setTimeout(() => {
+          setUploadProgress(25);
+          setUploadStatusText("Analyzing image content (Agent 1)... ");
+          analysisTimeoutRef.current = window.setTimeout(() => {
+            setUploadProgress(50);
+            setUploadStatusText("Matching against dataset (Agent 2)...");
+            analysisTimeoutRef.current = window.setTimeout(() => {
+              setUploadProgress(75);
+              setUploadStatusText("Finding closest match (Agent 3)...");
+               analysisTimeoutRef.current = window.setTimeout(() => {
+                  setUploadProgress(90);
+                  setUploadStatusText("Generating final analysis (Agent 4)...");
+               }, 4000);
+            }, 5000);
+          }, 3000);
+        }, 500);
+      }, 100);
+
       const response = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
@@ -209,131 +227,146 @@ export default function Home() {
   }
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 animate-gradient-x">
-      <div className="absolute top-4 right-4">
-        {session ? (
-          <Button
-            variant="default"
-            className="h-7 rounded-full bg-green-500 hover:bg-green-600 text-white px-3 text-xs"
-            onClick={handleLogout}
-            aria-label="Logout"
-          >
-            Logged In (Logout)
-          </Button>
-        ) : (
-          <Button
-            variant="destructive"
-            className="h-7 rounded-full bg-red-500 hover:bg-red-600 text-white px-3 text-xs"
-            onClick={handleLoginRedirect}
-            aria-label="Login"
-          >
-            Logged Out (Login)
-          </Button>
-        )}
-      </div>
-
-      <Card className="w-full max-w-md shadow-2xl border-0 rounded-xl bg-white relative overflow-hidden backdrop-blur-sm">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/20 to-transparent pointer-events-none"></div>
-        <div className="absolute -inset-1 bg-gradient-to-b from-white/10 to-transparent rounded-xl blur-sm"></div>
-        <CardHeader className="text-center pb-2 relative z-10">
-          <div className="mx-auto mb-4 w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-            <FileUp className="h-6 w-6 text-white" />
-          </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            claimX
-          </CardTitle>
-          <CardDescription className="text-gray-500 mt-2">AI-powered meme authorship attribution</CardDescription>
-        </CardHeader>
-        <CardContent className="pb-4 relative z-10">
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+    <div className="relative min-h-screen flex flex-col bg-transparent">
+      <Header />
+      <main className="flex-1 flex flex-col pt-28 pb-16">
+        <div className="absolute top-4 right-8">
+          {session ? (
+            <Button
+              variant="outline"
+              className="h-7 rounded-full bg-transparent border border-purple-300/50 hover:bg-purple-500/10 text-purple-200 px-3 text-xs"
+              onClick={handleLogout}
+              aria-label="Logout"
+            >
+              Logged In (Login)
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="h-7 rounded-full bg-red-500/20 border border-red-300/30 hover:bg-red-500/30 text-red-200 px-3 text-xs"
+              onClick={handleLoginRedirect}
+              aria-label="Login"
+            >
+              Logged Out (Login)
+            </Button>
           )}
+        </div>
 
-          <div
-            className={`relative mt-2 rounded-xl border-2 border-dashed p-8 transition-all duration-200 ease-in-out backdrop-blur-sm overflow-hidden ${
-              isDragging
-                ? "border-purple-500 bg-purple-50"
-                : file
-                  ? "border-green-500 bg-green-50"
-                  : "border-gray-300 hover:border-purple-400 bg-gray-50/80"
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/20 to-transparent pointer-events-none"></div>
-            <div className="flex flex-col items-center justify-center gap-2 text-center relative z-10">
-              {!file ? (
-                <>
-                  <Upload className={`h-10 w-10 ${isDragging ? "text-purple-500" : "text-gray-400"}`} />
-                  <div className="flex flex-col items-center">
-                    <p className="text-sm font-medium text-gray-700">Drag & drop your meme here</p>
-                    <p className="text-xs text-gray-500">or</p>
-                    <label
-                      htmlFor="file-upload"
-                      className="mt-1 cursor-pointer rounded-md bg-white px-3 py-1 text-sm font-semibold text-purple-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Choose file
-                    </label>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">(Max file size: 10 MB)</p>
-                </>
-              ) : (
-                <div className="flex flex-col items-center w-full">
-                  <div className="relative w-full max-w-[200px] aspect-square mb-4">
-                    <Image
-                      src={previewUrl || "/placeholder.svg"}
-                      alt="Preview"
-                      fill
-                      className="object-contain rounded-md"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between w-full bg-white rounded-md p-3 shadow-sm border border-gray-200">
-                    <div className="truncate max-w-[200px]">
-                      <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
-                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+        <div className="flex flex-col items-center justify-center w-full px-4 flex-1">
+          <div className="text-center mb-10 relative z-10">
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-200 via-purple-300 to-purple-200 bg-clip-text text-transparent tracking-tight mb-2">
+              ClaimX
+            </h1>
+            <p className="text-xl text-purple-100/90 mt-2">AI-powered meme authorship attribution</p>
+          </div>
+          
+          <Card className="w-full max-w-2xl shadow-xl border-0 rounded-xl bg-white/40 relative overflow-hidden backdrop-blur-md mx-auto transform transition-all mt-64 mb-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-white/30 to-white/10 pointer-events-none"></div>
+            <div className="absolute -inset-1 bg-gradient-to-b from-white/30 to-transparent rounded-xl blur-sm"></div>
+            <CardHeader className="text-center pb-2 relative z-10">
+              <div className="mx-auto mb-4 w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center shadow-md">
+                <FileUp className="h-6 w-6 text-white" />
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-800">
+                Upload your meme
+              </CardTitle>
+              <CardDescription className="text-gray-500 mt-1">We'll determine its rightful creator</CardDescription>
+            </CardHeader>
+            <CardContent className="pb-3 relative z-10">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div
+                className={`relative mt-1 rounded-xl border-2 border-dashed p-6 transition-all duration-200 ease-in-out backdrop-blur-md overflow-hidden ${
+                  isDragging
+                    ? "border-purple-400 bg-purple-50"
+                    : file
+                      ? "border-purple-300 bg-white/50"
+                      : "border-gray-300 hover:border-purple-400 bg-white/40"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/20 to-transparent pointer-events-none"></div>
+                <div className="flex flex-col items-center justify-center gap-2 text-center relative z-10">
+                  {!file ? (
+                    <>
+                      <Upload className={`h-10 w-10 ${isDragging ? "text-purple-500" : "text-gray-400"}`} />
+                      <div className="flex flex-col items-center">
+                        <p className="text-sm font-medium text-gray-700">Drag & drop your meme here</p>
+                        <p className="text-xs text-gray-500">or</p>
+                        <label
+                          htmlFor="file-upload"
+                          className="mt-1 cursor-pointer rounded-md bg-white px-3 py-1 text-xs font-semibold text-purple-500 shadow-sm ring-1 ring-inset ring-purple-200 hover:bg-purple-50"
+                        >
+                          Choose file
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">(Max file size: 10 MB)</p>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center w-full pt-6">
+                      <div className="relative w-full max-w-[300px] aspect-square mb-3">
+                        <Image
+                          src={previewUrl || "/placeholder.svg"}
+                          alt="Preview"
+                          fill
+                          className="object-contain rounded-md"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between w-full bg-white/70 rounded-md p-2 shadow-sm border border-white/50">
+                        <div className="truncate flex-1 mr-3">
+                          <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={removeFile}
+                          className="h-8 w-8 text-gray-500 hover:text-red-500"
+                          aria-label="Remove file"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={removeFile}
-                      className="h-8 w-8 text-gray-500 hover:text-red-500"
-                      aria-label="Remove file"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                  )}
+                </div>
+                <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+              </div>
+
+              {isUploading && (
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs mb-1 font-medium text-gray-600">
+                    <span>{uploadStatusText}</span>
+                    <span>{uploadProgress}%</span>
                   </div>
+                  <Progress value={uploadProgress} className="h-2" aria-label="Upload progress" />
                 </div>
               )}
-            </div>
-            <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
-          </div>
-
-          {isUploading && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs mb-1 font-medium text-gray-600">
-                <span>{uploadStatusText}</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <Progress value={uploadProgress} className="h-2" aria-label="Upload progress" />
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="relative z-10">
-          <Button
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative overflow-hidden group"
-            disabled={!file || isUploading}
-            onClick={handleAnalyze}
-          >
-            <span className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-            <span className="relative z-10">{isUploading ? "Analyzing..." : "Analyze Meme"}</span>
-          </Button>
-        </CardFooter>
-      </Card>
-    </main>
+            </CardContent>
+            <CardFooter className="relative z-10">
+              <Button
+                className="w-full bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-md relative overflow-hidden group px-6 py-3 text-base font-medium"
+                disabled={!file || isUploading}
+                onClick={handleAnalyze}
+              >
+                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                <span className="relative z-10">{isUploading ? "Analyzing..." : "Analyze Meme"}</span>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+        
+        <FeatureSection />
+      </main>
+      <Footer />
+    </div>
   )
 }
