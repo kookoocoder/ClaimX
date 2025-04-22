@@ -62,10 +62,10 @@ export async function analyzeImageWithGemini(base64Image: string) {
     try {
       return JSON.parse(jsonStr);
     } catch (error) {
-      console.error("Failed to parse JSON from Gemini response");
+      console.error("Failed to parse JSON from Gemini response (Agent 1)", { text, error });
       // Fallback to structured response based on text
       return {
-        description: text,
+        description: text || "Analysis failed or returned empty response.",
         textContent: "Text extraction failed",
         visualElements: ["Unknown"],
         theme: "Unknown",
@@ -84,9 +84,9 @@ export async function matchDescriptionWithDataset(description: string, dataset: 
     
     const datasetSummary = dataset.map((item, index) => `
     Item ${index + 1}:
-    - Creator: ${item.creator_username}
-    - Description: ${item.description.substring(0, 300)}...
-    - Upload Date: ${item.upload_date}
+    - Creator: ${item.creator_username ?? 'Unknown'}
+    - Description: ${item.description?.substring(0, 300) ?? 'No description available'}...
+    - Upload Date: ${item.upload_date ?? 'Unknown'}
     `).join("\n");
     
     const prompt = `
@@ -117,21 +117,26 @@ export async function matchDescriptionWithDataset(description: string, dataset: 
     try {
       const parsed = JSON.parse(jsonStr);
       
-      // Convert the matches indices to actual dataset items
-      const matchesItems = parsed.matches.map((index: number) => dataset[index - 1]);
-      
+      // Ensure parsed.matches is an array and filter out invalid indices
+      const validIndices = Array.isArray(parsed.matches) 
+        ? parsed.matches.map(Number).filter((index: number) => !isNaN(index) && index > 0 && index <= dataset.length)
+        : [];
+
+      const matchesItems = validIndices.map((index: number) => dataset[index - 1]);
+      const explanations = parsed.explanations || {}; // Ensure explanations is an object
+
       return {
         matches: matchesItems,
-        explanations: parsed.explanations,
+        explanations: explanations,
         matchCount: matchesItems.length
       };
     } catch (error) {
-      console.error("Failed to parse JSON from Gemini response for matching");
+      console.error("Failed to parse JSON from Gemini response for matching (Agent 2)", { text, error });
       // Fallback to top 3 items
       return {
         matches: dataset.slice(0, 3),
-        explanations: { "1": "Automatic fallback match" },
-        matchCount: 3
+        explanations: { "1": "Automatic fallback match due to processing error" },
+        matchCount: Math.min(3, dataset.length)
       };
     }
   } catch (error) {
@@ -142,15 +147,32 @@ export async function matchDescriptionWithDataset(description: string, dataset: 
 
 // Agent 3: Find closest match
 export async function findClosestMatch(originalDescription: string, matches: any[]) {
+  // Handle case where no matches were found by Agent 2
+  if (!matches || matches.length === 0) {
+    console.warn("No matches provided to findClosestMatch. Returning fallback.");
+    return {
+      finalMatch: { // Provide a fallback structure matching expected output
+          id: -1,
+          creator_username: 'Unknown',
+          description: 'No match found',
+          upload_date: new Date().toISOString(),
+          image_url: '',
+          post_link: '',
+      },
+      explanation: "No potential matches were identified in the previous step.",
+      similarityScore: 0
+    };
+  }
+
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const matchesDetails = matches.map((item, index) => `
     Match ${index + 1}:
-    - Creator: ${item.creator_username}
-    - Description: ${item.description}
-    - Upload Date: ${item.upload_date}
-    - Image URL: ${item.image_url}
+    - Creator: ${item.creator_username ?? 'Unknown'}
+    - Description: ${item.description ?? 'No description'}
+    - Upload Date: ${item.upload_date ?? 'Unknown'}
+    - Image URL: ${item.image_url ?? 'N/A'}
     `).join("\n");
     
     const prompt = `
@@ -166,9 +188,9 @@ export async function findClosestMatch(originalDescription: string, matches: any
     Consider visual elements, text content, theme, and style. Provide a detailed explanation of why this is the best match.
     
     Format your response as structured JSON with the following fields:
-    - matchIndex: The index of the best match (starting from 1)
-    - explanation: Detailed explanation of why this is the best match
-    - similarityScore: A score from 0-100 representing how similar they are
+    - matchIndex: The index (starting from 1) of the best match from the list provided above.
+    - explanation: Detailed explanation of why this is the best match.
+    - similarityScore: A score from 0-100 representing how similar they are.
     `;
     
     const result = await model.generateContent(prompt);
@@ -181,20 +203,27 @@ export async function findClosestMatch(originalDescription: string, matches: any
     
     try {
       const parsed = JSON.parse(jsonStr);
-      const bestMatchIndex = parsed.matchIndex - 1;
+      const bestMatchIndex = Number(parsed.matchIndex) - 1; // Ensure it's a number
+
+      // Validate index
+      if (isNaN(bestMatchIndex) || bestMatchIndex < 0 || bestMatchIndex >= matches.length) {
+         console.error(`Invalid matchIndex ${parsed.matchIndex} received from Agent 3. Falling back.`);
+         throw new Error("Invalid match index from Agent 3");
+      }
+
       const finalMatch = matches[bestMatchIndex];
       
       return {
         finalMatch,
-        explanation: parsed.explanation,
-        similarityScore: parsed.similarityScore
+        explanation: parsed.explanation || "No explanation provided.",
+        similarityScore: Number(parsed.similarityScore) || 0 // Ensure score is a number
       };
     } catch (error) {
-      console.error("Failed to parse JSON from Gemini response for closest match");
+      console.error("Failed to parse JSON or invalid index from Gemini response for closest match (Agent 3)", { text, error });
       // Fallback to first match
       return {
         finalMatch: matches[0],
-        explanation: "Automatic fallback to first match due to processing error",
+        explanation: "Automatic fallback to first match due to processing error.",
         similarityScore: 70
       };
     }
@@ -206,6 +235,17 @@ export async function findClosestMatch(originalDescription: string, matches: any
 
 // Agent 4: Generate match analysis
 export async function generateMatchAnalysis(originalDescription: string, finalMatch: any) {
+  // Handle cases where finalMatch might be null or missing properties (e.g., from fallback)
+  if (!finalMatch || !finalMatch.creator_username) {
+    console.warn("Invalid finalMatch provided to generateMatchAnalysis. Returning fallback.");
+    return {
+        matchPercentage: 0,
+        matchingFeatures: [],
+        creatorStyle: "Unknown",
+        confidenceExplanation: "Analysis could not be performed due to missing match data."
+    };
+  }
+
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
@@ -216,9 +256,9 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
     "${originalDescription}"
     
     Matched creator and post:
-    - Creator: ${finalMatch.creator_username}
-    - Post Description: ${finalMatch.description}
-    - Upload Date: ${finalMatch.upload_date}
+    - Creator: ${finalMatch.creator_username ?? 'Unknown'}
+    - Post Description: ${finalMatch.description ?? 'No description'}
+    - Upload Date: ${finalMatch.upload_date ?? 'Unknown'}
     
     Generate a detailed analysis of how well this meme matches the creator's style.
     Calculate a confident match percentage based on:
@@ -243,19 +283,21 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
     const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text;
     
     try {
-      return JSON.parse(jsonStr);
+      const parsed = JSON.parse(jsonStr);
+      return {
+        matchPercentage: Number(parsed.matchPercentage) || 0,
+        matchingFeatures: Array.isArray(parsed.matchingFeatures) ? parsed.matchingFeatures : [],
+        creatorStyle: parsed.creatorStyle || "Style analysis unavailable.",
+        confidenceExplanation: parsed.confidenceExplanation || "Confidence explanation unavailable."
+      };
     } catch (error) {
-      console.error("Failed to parse JSON from Gemini response for match analysis");
+      console.error("Failed to parse JSON from Gemini response for match analysis (Agent 4)", { text, error });
       // Fallback to structured response
       return {
-        matchPercentage: 85,
-        matchingFeatures: [
-          "Similar visual composition",
-          "Matching text style",
-          "Consistent theme"
-        ],
-        creatorStyle: `${finalMatch.creator_username}'s typical meme style`,
-        confidenceExplanation: "Generated fallback explanation due to processing error"
+        matchPercentage: 0,
+        matchingFeatures: [],
+        creatorStyle: "Analysis failed due to processing error.",
+        confidenceExplanation: "Could not determine confidence due to processing error."
       };
     }
   } catch (error) {
