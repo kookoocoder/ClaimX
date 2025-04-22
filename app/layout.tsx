@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={`${inter.className}`}>
         <SplineBackground />
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}m
+          {children}
         </ThemeProvider>
       </body>
     </html>

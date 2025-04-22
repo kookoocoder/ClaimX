@@ -10,8 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
-import { PlagiarismRegion, detectPlagiarismRegions, getPlagiarismRegionStyle } from "@/lib/plagiarismDetection"
 import { retrieveImage, validateImage, FALLBACK_IMAGE } from "@/lib/imageStorage"
+import ReactMarkdown from "react-markdown"
+import Header from "@/components/header"
+import Footer from "@/components/footer"
+import { motion } from "framer-motion"
 
 interface MatchResult {
   percentage: number;
@@ -97,13 +100,11 @@ export default function Results() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoaded, setIsLoaded] = useState(false)
-  const [confidenceScore, setConfidenceScore] = useState(0)
+  const [plagiarismScore, setPlagiarismScore] = useState(0)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageFallback, setImageFallback] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [plagiarismRegions, setPlagiarismRegions] = useState<PlagiarismRegion[]>([])
-  const [isPlagiarismLoading, setIsPlagiarismLoading] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   // Function to handle image load errors
@@ -180,7 +181,7 @@ export default function Results() {
       
       loadImages()
       
-      // Simulate loading and animating the confidence score
+      // Simulate loading and animating the plagiarism score
       const score = parsedResult.matchResult.percentage || 97
       const timer = setTimeout(() => {
         setIsLoaded(true)
@@ -188,7 +189,7 @@ export default function Results() {
       }, 500)
 
       const scoreInterval = setInterval(() => {
-        setConfidenceScore((prev) => {
+        setPlagiarismScore((prev) => {
           if (prev >= score) {
             clearInterval(scoreInterval)
             return score
@@ -207,35 +208,7 @@ export default function Results() {
     }
   }, [router])
 
-  // Load plagiarism detection results when tab is selected
-  const handleHeatFrameTabSelect = async () => {
-    if (plagiarismRegions.length === 0) {
-      setIsPlagiarismLoading(true)
-      try {
-        // Ensure we have an image URL to work with
-        const sourceImage = imageUrl || "https://placehold.co/600x400/purple/white?text=Sample+Meme+Image"
-        const targetImage = analysisResult?.finalMatch?.imageUrl || "https://placehold.co/600x400/blue/white?text=Sample+Target+Image"
-        
-        const regions = await detectPlagiarismRegions(
-          sourceImage,
-          targetImage,
-          confidenceScore
-        )
-        setPlagiarismRegions(regions)
-      } catch (error) {
-        console.error("Error detecting plagiarism regions:", error)
-        // Generate some sample regions if detection fails
-        setPlagiarismRegions([
-          { x: 10, y: 15, width: 35, height: 25, confidence: 90 },
-          { x: 55, y: 45, width: 35, height: 35, confidence: 80 },
-        ])
-      } finally {
-        setIsPlagiarismLoading(false)
-      }
-    }
-  }
-
-  const getConfidenceColor = (score: number) => {
+  const getPlagiarismColor = (score: number) => {
     if (score < 50) return "text-red-500"
     if (score < 80) return "text-yellow-500"
     return "text-green-500"
@@ -258,424 +231,401 @@ export default function Results() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 md:p-8 animate-gradient-x">
-        <div className="max-w-4xl mx-auto">
-          <Button variant="ghost" className="mb-6 text-white hover:bg-purple-800/20" onClick={() => router.push("/")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
-          </Button>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1 shadow-2xl border-0 rounded-xl bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xl font-bold">Meme Analysis</CardTitle>
-                <CardDescription>AI-powered attribution results</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="relative aspect-square w-full mb-4 bg-gray-200 rounded-lg" />
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-medium text-gray-500">Confidence Score</span>
-                      <Skeleton className="h-6 w-16" />
-                    </div>
-                    <Skeleton className="h-2.5 w-full" />
+      <div className="relative min-h-screen flex flex-col bg-transparent">
+        <div className="absolute inset-0 bg-slate-900/30 pointer-events-none z-[-5]"></div>
+        <Header />
+        <main className="flex-1 flex flex-col pt-20 pb-16">
+          <div className="container mx-auto px-4 md:px-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="w-full max-w-7xl mx-auto"
+            >
+              <Button variant="ghost" className="mb-6 text-slate-300 hover:bg-slate-800/40 hover:text-white" onClick={() => router.push("/")}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
+              </Button>
+              
+              <Card className="border-0 shadow-xl rounded-xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 overflow-hidden">
+                <CardHeader className="pb-4 relative z-10 border-b border-slate-700/30">
+                  <div className="w-14 h-14 bg-gradient-to-br from-slate-700/80 to-slate-900/80 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+                    <Hash className="h-7 w-7 text-slate-200" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-2 shadow-2xl border-0 rounded-xl bg-white">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  Processing Results
-                </CardTitle>
-                <CardDescription>Analyzing your uploaded meme</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-5/6" />
-                  <Skeleton className="h-6 w-full" />
-                </div>
-              </CardContent>
-            </Card>
+                  <CardTitle className="text-xl font-bold text-slate-100 text-center mb-1">ClaimX Analysis Dashboard</CardTitle>
+                  <CardDescription className="text-slate-300 text-center">Processing your content analysis</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-8 pb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-4">
+                      <h3 className="text-md font-medium text-slate-200">Content Analysis</h3>
+                      <Skeleton className="relative aspect-square w-full mb-4 bg-slate-700/50 rounded-lg" />
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-slate-300">Plagiarism Score</span>
+                          <Skeleton className="h-6 w-16 bg-slate-700/50" />
+                        </div>
+                        <Skeleton className="h-2.5 w-full bg-slate-700/50 rounded-full" />
+                      </div>
+                    </div>
+                    
+                    <div className="md:col-span-2 space-y-6">
+                      <h3 className="text-md font-medium text-slate-200">Attribution Results</h3>
+                      <div className="space-y-6">
+                        <Skeleton className="h-6 w-3/4 bg-slate-700/50" />
+                        <Skeleton className="h-6 w-full bg-slate-700/50" />
+                        <Skeleton className="h-6 w-5/6 bg-slate-700/50" />
+                        <Skeleton className="h-6 w-full bg-slate-700/50" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
-        </div>
-      </main>
+        </main>
+        <Footer />
+      </div>
     )
   }
 
   if (!analysisResult) return null
 
   return (
-    <main className="min-h-screen bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 md:p-8 animate-gradient-x">
-      <div className="max-w-4xl mx-auto">
-        <Button variant="ghost" className="mb-6 text-white hover:bg-purple-800/20" onClick={() => router.push("/")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
-        </Button>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-1 shadow-2xl border-0 rounded-xl bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl font-bold">Meme Analysis</CardTitle>
-              <CardDescription>AI-powered attribution results</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative aspect-square w-full mb-4 bg-gray-100 rounded-lg overflow-hidden">
-                <ImageWithFallback
-                  src={imageUrl}
-                  alt="Analyzed meme"
-                  className="object-contain"
-                  onError={handleImageError}
-                  priority
-                />
+    <div className="relative min-h-screen flex flex-col bg-transparent">
+      <div className="absolute inset-0 bg-slate-900/30 pointer-events-none z-[-5]"></div>
+      <Header />
+      <main className="flex-1 flex flex-col pt-20 pb-16">
+        <div className="container mx-auto px-4 md:px-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="w-full max-w-7xl mx-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <Button variant="ghost" className="text-slate-300 hover:bg-slate-800/40 hover:text-white" onClick={() => router.push("/")}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
+                  <Download className="h-4 w-4 mr-1" /> Export
+                </Button>
+                <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
+                  <Share2 className="h-4 w-4 mr-1" /> Share
+                </Button>
               </div>
+            </div>
 
-              <div className="space-y-4">
+            <Card className="border-0 shadow-xl rounded-xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 overflow-hidden mb-6">
+              <CardHeader className="pb-4 border-b border-slate-700/30 flex flex-row items-center justify-between">
                 <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium text-gray-500">Confidence Score</span>
-                    <span className={`text-lg font-bold ${getConfidenceColor(confidenceScore)}`}>
-                      {confidenceScore}%
-                    </span>
-                  </div>
-                  <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 transition-all duration-1000 ease-out"
-                      style={{
-                        width: `${confidenceScore}%`,
-                        opacity: isLoaded ? 1 : 0,
-                      }}
-                    />
-                  </div>
+                  <CardTitle className="text-xl font-bold text-slate-100">
+                    ClaimX Analysis Dashboard
+                  </CardTitle>
+                  <CardDescription className="text-slate-300">
+                    {plagiarismScore > 90 
+                      ? "High plagiarism detected" 
+                      : plagiarismScore > 70 
+                        ? "Substantial plagiarism detected" 
+                        : "Potential plagiarism identified"}
+                  </CardDescription>
                 </div>
-
-                <div className="flex justify-between gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <Download className="h-4 w-4 mr-1" /> Save
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <Share2 className="h-4 w-4 mr-1" /> Share
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="md:col-span-2 shadow-2xl border-0 rounded-xl bg-white">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Attribution Results
-              </CardTitle>
-              <CardDescription>
-                {confidenceScore > 90 
-                  ? "We found a high confidence match for this meme" 
-                  : confidenceScore > 70 
-                    ? "We found a good match for this meme" 
-                    : "We found a possible match for this meme"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-0">
-              <Tabs defaultValue="details" className="w-full" onValueChange={(value) => {
-                if (value === "heatframe") {
-                  handleHeatFrameTabSelect()
-                }
-              }}>
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="comparison">Comparison</TabsTrigger>
-                  <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                  <TabsTrigger value="heatframe">Heat Frame</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details" className="space-y-4 pt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 p-2 rounded-full">
-                          <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Creator</p>
-                          <p className="text-base font-semibold">@{analysisResult.finalMatch.creator}</p>
-                        </div>
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="flex items-center gap-2"
+                >
+                  <div className="text-sm font-medium text-slate-300">Plagiarism Score:</div>
+                  <div className={`text-lg font-bold px-3 py-1 rounded-full ${
+                    plagiarismScore > 90 ? "bg-red-900/20 text-red-400" : 
+                    plagiarismScore > 70 ? "bg-yellow-900/20 text-yellow-400" : 
+                    "bg-green-900/20 text-green-400"
+                  }`}>
+                    {plagiarismScore}%
+                  </div>
+                </motion.div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-0">
+                  <div className="md:col-span-1 p-6 border-r border-slate-700/30">
+                    <div className="space-y-6">
+                      <div className="relative aspect-square w-full mb-4 bg-slate-700/30 rounded-lg overflow-hidden shadow-lg border border-slate-700/50">
+                        <ImageWithFallback
+                          src={imageUrl}
+                          alt="Analyzed content"
+                          className="object-contain"
+                          onError={handleImageError}
+                          priority
+                        />
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="bg-purple-100 p-2 rounded-full">
-                          <Calendar className="h-5 w-5 text-purple-600" />
-                        </div>
+                      <div className="space-y-4">
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Date & Time</p>
-                          <p className="text-base font-semibold">{formatDate(analysisResult.finalMatch.uploadDate)}</p>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium text-slate-300">Plagiarism Level</span>
+                          </div>
+                          <div className="h-2.5 w-full bg-slate-700/40 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0, opacity: 0 }}
+                              animate={{ 
+                                width: `${plagiarismScore}%`, 
+                                opacity: 1 
+                              }}
+                              transition={{ duration: 1, delay: 0.5 }}
+                              className={`h-full rounded-full ${
+                                plagiarismScore > 90 ? "bg-red-500" : 
+                                plagiarismScore > 70 ? "bg-yellow-500" : "bg-green-500"
+                              }`}
+                            />
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="bg-indigo-100 p-2 rounded-full">
-                          <Link className="h-5 w-5 text-indigo-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Original Post</p>
-                          <a 
-                            href={analysisResult.finalMatch.postLink} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-base font-semibold text-blue-600 hover:underline"
-                          >
-                            View Source
-                          </a>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="bg-amber-100 p-2 rounded-full">
-                          <Percent className="h-5 w-5 text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Match Type</p>
-                          <p className={`text-base font-semibold ${getConfidenceColor(confidenceScore)}`}>
-                            {confidenceScore > 90 
-                              ? "Exact Match" 
-                              : confidenceScore > 70 
-                                ? "Strong Match" 
-                                : "Possible Match"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Matching Features</p>
-                        <div className="space-y-2">
-                          {analysisResult.matchResult.features.map((feature, index) => (
-                            <div key={index} className="bg-gray-50 p-2 rounded border border-gray-200 shadow-sm">
-                              <span className="text-sm">{feature}</span>
+                        <div className="space-y-3 border-t border-slate-700/30 pt-4 mt-4">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-900/30 p-2 rounded-full">
+                              <User className="h-4 w-4 text-blue-400" />
                             </div>
-                          ))}
+                            <div>
+                              <p className="text-xs font-medium text-slate-400">Original Creator</p>
+                              <p className="text-sm font-semibold text-slate-200">@{analysisResult.finalMatch.creator}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="bg-purple-900/30 p-2 rounded-full">
+                              <Calendar className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-slate-400">Original Date</p>
+                              <p className="text-sm font-semibold text-slate-200">{formatDate(analysisResult.finalMatch.uploadDate)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="bg-indigo-900/30 p-2 rounded-full">
+                              <Link className="h-4 w-4 text-indigo-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-slate-400">Original Source</p>
+                              <a 
+                                href={analysisResult.finalMatch.postLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-sm font-semibold text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                View Source
+                              </a>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </TabsContent>
 
-                <TabsContent value="comparison" className="pt-4">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">Visual Comparison</h3>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="max-w-xs text-sm">
-                              This comparison shows the uploaded meme alongside the matched meme to help visualize the similarities.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">Your Uploaded Meme</p>
-                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                          <ImageWithFallback
-                            src={imageUrl}
-                            alt="Your uploaded meme"
-                            className="object-contain"
-                            onError={handleImageError}
-                            priority
-                          />
+                  <div className="md:col-span-3 border-t md:border-t-0">
+                    <Tabs defaultValue="details" className="w-full">
+                      <div className="border-b border-slate-700/30">
+                        <div className="px-6">
+                          <TabsList className="grid w-full grid-cols-3 mt-1 bg-slate-800/50">
+                            <TabsTrigger value="details" className="data-[state=active]:bg-slate-700/50">Details</TabsTrigger>
+                            <TabsTrigger value="comparison" className="data-[state=active]:bg-slate-700/50">Comparison</TabsTrigger>
+                            <TabsTrigger value="analysis" className="data-[state=active]:bg-slate-700/50">Analysis</TabsTrigger>
+                          </TabsList>
                         </div>
                       </div>
-                      
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">Matched Meme</p>
-                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                          <ImageWithFallback
-                            src={analysisResult.finalMatch.imageUrl}
-                            alt="Matched meme"
-                            className="object-contain"
-                            priority
-                          />
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
-                      <p className="text-sm text-gray-700 font-medium mb-2">Similarity Assessment</p>
-                      <p className="text-sm text-gray-700">
-                        {analysisResult.finalMatch.explanation || 
-                          "The analysis shows significant similarities between your uploaded meme and the matched original."}
-                      </p>
-                    </div>
-                  </div>
-                </TabsContent>
+                      <TabsContent value="details" className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Plagiarism Details</h3>
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                <div className="bg-amber-900/30 p-2 rounded-full">
+                                  <Percent className="h-4 w-4 text-amber-400" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-slate-400">Plagiarism Type</p>
+                                  <p className={`text-sm font-semibold ${
+                                    plagiarismScore > 90 ? "text-red-400" : 
+                                    plagiarismScore > 70 ? "text-yellow-400" : "text-green-400"
+                                  }`}>
+                                    {plagiarismScore > 90 
+                                      ? "Direct Copy" 
+                                      : plagiarismScore > 70 
+                                        ? "Major Plagiarism" 
+                                        : "Minor Plagiarism"}
+                                  </p>
+                                </div>
+                              </div>
 
-                <TabsContent value="analysis" className="pt-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Creator Style Analysis</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
-                        <p className="text-sm text-gray-700">
-                          {analysisResult.matchResult.creatorStyle || 
-                            `@${analysisResult.finalMatch.creator}'s meme style typically features distinctive visual elements and text formatting.`}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Visual Elements Detected</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {analysisResult.originalAnalysis.visualElements.map((element, index) => (
-                          <Badge key={index} variant="secondary" className="bg-blue-100 hover:bg-blue-200 text-blue-700">
-                            {element}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Text Content</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
-                        <p className="text-sm text-gray-700">
-                          {analysisResult.originalAnalysis.textContent || "No text content was detected in this meme."}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Theme Analysis</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
-                        <p className="text-sm text-gray-700">
-                          {analysisResult.originalAnalysis.theme || "The theme could not be determined."}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="heatframe" className="pt-4">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">Plagiarism Detection</h3>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="max-w-xs text-sm">
-                              The heat frame highlights areas of similarity or potential plagiarism between the uploaded image and the matched image.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">Similarity Detection</p>
-                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                          {isPlagiarismLoading ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                              <div className="flex flex-col items-center gap-3">
-                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent"></div>
-                                <p className="text-sm text-gray-500">Analyzing similarities...</p>
+                              <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50">
+                                <p className="text-sm text-slate-300">
+                                  {analysisResult.originalAnalysis.description || 
+                                    "This content has been analyzed against our database to detect potential plagiarism."}
+                                </p>
                               </div>
                             </div>
-                          ) : (
-                            <>
-                              <ImageWithFallback
-                                src={imageUrl}
-                                alt="Your uploaded meme with similarity detection"
-                                className="object-contain"
-                                priority
-                                onError={handleImageError}
-                              />
-                              {/* Render the detected plagiarism regions */}
-                              {plagiarismRegions.map((region, index) => (
-                                <div
-                                  key={index}
-                                  style={getPlagiarismRegionStyle(region)}
-                                  title={`${region.description || 'Plagiarized element'} - ${Math.round(region.confidence)}% confidence`}
-                                ></div>
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Plagiarized Elements</h3>
+                            <div className="space-y-2">
+                              {analysisResult.matchResult.features.map((feature, index) => (
+                                <motion.div 
+                                  key={index} 
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: index * 0.1 + 0.3, duration: 0.5 }}
+                                  className="bg-slate-800/60 backdrop-blur-sm p-3 rounded-lg border border-slate-700/50 shadow-md"
+                                >
+                                  <span className="text-sm text-slate-300">{feature}</span>
+                                </motion.div>
                               ))}
-                            </>
-                          )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
-                        <p className="text-sm text-gray-700 font-medium mb-2">Plagiarism Assessment</p>
-                        {isPlagiarismLoading ? (
-                          <p className="text-sm text-gray-700">Analyzing image for similarities...</p>
-                        ) : plagiarismRegions.length === 0 ? (
-                          <p className="text-sm text-gray-700">No significant similarities detected.</p>
-                        ) : (
-                          <>
-                            <p className="text-sm text-gray-700 mb-3">
-                              The analysis has detected {plagiarismRegions.length} {plagiarismRegions.length === 1 ? 'area' : 'areas'} of suspected plagiarism, highlighted with red frames.
-                              {confidenceScore > 90 
-                                ? " There is a high probability these elements were copied from the original." 
-                                : confidenceScore > 70 
-                                  ? " These areas show significant similarities to the original content." 
-                                  : " These areas show potential similarities to the original content."}
-                            </p>
+                      </TabsContent>
+
+                      <TabsContent value="comparison" className="p-6">
+                        <div className="space-y-6">
+                          <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-slate-100">Visual Comparison</h3>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-slate-700/50">
+                                    <Info className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-slate-800 border-slate-700 text-slate-200">
+                                  <p className="max-w-xs text-sm">
+                                    This comparison shows your uploaded content alongside the original content to help visualize the similarities.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <p className="text-sm font-medium text-slate-300 mb-2">Your Uploaded Content</p>
+                              <div className="relative aspect-video w-full bg-slate-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-md border border-slate-700/50">
+                                <ImageWithFallback
+                                  src={imageUrl}
+                                  alt="Your uploaded content"
+                                  className="object-contain"
+                                  onError={handleImageError}
+                                  priority
+                                />
+                              </div>
+                            </div>
                             
-                            <p className="text-sm font-medium text-gray-700 mt-3 mb-1">Detected Elements:</p>
-                            <ul className="space-y-2">
-                              {plagiarismRegions.map((region, index) => (
-                                <li key={index} className="flex items-start gap-2">
-                                  <div className="w-3 h-3 mt-1 bg-red-500 rounded-full flex-shrink-0"></div>
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-700">
-                                      {region.description || `Element ${index + 1}`}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      Confidence: {Math.round(region.confidence)}% - 
-                                      {region.confidence > 90 ? ' Highly likely copied' : 
-                                       region.confidence > 80 ? ' Likely copied' : 
-                                       region.confidence > 70 ? ' Possibly copied' : ' Similar elements'}
-                                    </p>
-                                  </div>
-                                </li>
+                            <div>
+                              <p className="text-sm font-medium text-slate-300 mb-2">Original Content</p>
+                              <div className="relative aspect-video w-full bg-slate-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-md border border-slate-700/50">
+                                <ImageWithFallback
+                                  src={analysisResult.finalMatch.imageUrl}
+                                  alt="Original content"
+                                  className="object-contain"
+                                  priority
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-md">
+                            <p className="text-sm font-medium text-slate-200 mb-2">Plagiarism Assessment</p>
+                            <div className="prose prose-sm max-w-none text-slate-300 prose-headings:text-slate-200 prose-strong:text-slate-200">
+                              <ReactMarkdown>
+                                {analysisResult.finalMatch.explanation || 
+                                  `## Key Findings
+                                  
+* **Plagiarism Level**: ${plagiarismScore > 90 ? "**Direct Copy**" : plagiarismScore > 70 ? "**Substantial Plagiarism**" : "**Minor Plagiarism**"}
+* **Similarity**: ${plagiarismScore}% match to original
+${analysisResult.matchResult.features?.length > 0 ? 
+`* **Plagiarized Elements**:
+  * ${analysisResult.matchResult.features[0] || "Visual composition matches original"}
+  ${analysisResult.matchResult.features[1] ? `* ${analysisResult.matchResult.features[1]}` : ''}
+  ${analysisResult.matchResult.features[2] ? `* ${analysisResult.matchResult.features[2]}` : ''}` : 
+`* **Detected Pattern**: Similar visual composition and style`}`}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="analysis" className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Original Creator Style</h3>
+                            <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-md">
+                              <p className="text-sm text-slate-300">
+                                {analysisResult.matchResult.creatorStyle || 
+                                  `@${analysisResult.finalMatch.creator}'s style typically features distinctive visual elements and text formatting.`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Theme Analysis</h3>
+                            <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-md">
+                              <p className="text-sm text-slate-300">
+                                {analysisResult.originalAnalysis.theme || "The theme could not be determined."}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Visual Elements Detected</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {analysisResult.originalAnalysis.visualElements.map((element, index) => (
+                                <motion.div
+                                  key={index}
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: index * 0.05 + 0.2 }}
+                                >
+                                  <Badge key={index} variant="outline" className="bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 border-slate-700/50 py-1.5">
+                                    {element}
+                                  </Badge>
+                                </motion.div>
                               ))}
-                            </ul>
-                          </>
-                        )}
-                      </div>
-                      
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 shadow-md">
-                        <p className="text-sm text-amber-800 font-medium mb-2">Note on Results</p>
-                        <p className="text-sm text-amber-700">
-                          This is an automated analysis and should be used as a guide only. Manual verification is recommended for definitive plagiarism determination.
-                        </p>
-                      </div>
-                    </div>
+                            </div>
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <h3 className="text-lg font-semibold mb-3 text-slate-100">Text Content</h3>
+                            <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-md">
+                              <p className="text-sm text-slate-300">
+                                {analysisResult.originalAnalysis.textContent || "No text content was detected in this content."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-            <CardFooter className="pt-6">
-              <Button 
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
-                onClick={() => router.push("/")}
-              >
-                Analyze Another Meme
-              </Button>
-            </CardFooter>
-          </Card>
+                </div>
+              </CardContent>
+              <CardFooter className="border-t border-slate-700/30 p-6">
+                <div className="w-full flex justify-between items-center">
+                  <p className="text-sm text-slate-400">
+                    Analysis performed on {new Date().toLocaleDateString()}
+                  </p>
+                  <Button 
+                    className="bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-sm hover:from-slate-600/80 hover:to-slate-700/80 text-white shadow-lg rounded-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px]"
+                    onClick={() => router.push("/")}
+                  >
+                    Analyze New Content
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          </motion.div>
         </div>
-      </div>
-    </main>
+      </main>
+      <Footer />
+    </div>
   )
 }
