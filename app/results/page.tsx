@@ -113,14 +113,14 @@ export default function Results() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-gray-100 p-4 md:p-8 animate-gradient-x">
+      <main className="min-h-screen bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 md:p-8 animate-gradient-x">
         <div className="max-w-4xl mx-auto">
-          <Button variant="ghost" className="mb-6" onClick={() => router.push("/")}>
+          <Button variant="ghost" className="mb-6 text-white hover:bg-purple-800/20" onClick={() => router.push("/")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
           </Button>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1 shadow-xl border-0">
+            <Card className="md:col-span-1 shadow-2xl border-0 rounded-xl bg-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl font-bold">Meme Analysis</CardTitle>
                 <CardDescription>AI-powered attribution results</CardDescription>
@@ -139,9 +139,9 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-2 shadow-xl border-0">
+            <Card className="md:col-span-2 shadow-2xl border-0 rounded-xl bg-white">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                   Processing Results
                 </CardTitle>
                 <CardDescription>Analyzing your uploaded meme</CardDescription>
@@ -164,14 +164,14 @@ export default function Results() {
   if (!analysisResult) return null
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-gray-100 p-4 md:p-8 animate-gradient-x">
+    <main className="min-h-screen bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 md:p-8 animate-gradient-x">
       <div className="max-w-4xl mx-auto">
-        <Button variant="ghost" className="mb-6" onClick={() => router.push("/")}>
+        <Button variant="ghost" className="mb-6 text-white hover:bg-purple-800/20" onClick={() => router.push("/")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
         </Button>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-1 shadow-xl border-0">
+          <Card className="md:col-span-1 shadow-2xl border-0 rounded-xl bg-white">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl font-bold">Meme Analysis</CardTitle>
               <CardDescription>AI-powered attribution results</CardDescription>
@@ -223,9 +223,9 @@ export default function Results() {
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-2 shadow-xl border-0">
+          <Card className="md:col-span-2 shadow-2xl border-0 rounded-xl bg-white">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 Attribution Results
               </CardTitle>
               <CardDescription>
@@ -306,7 +306,7 @@ export default function Results() {
                         <p className="text-sm font-medium text-gray-500 mb-2">Matching Features</p>
                         <div className="space-y-2">
                           {analysisResult.matchResult.features.map((feature, index) => (
-                            <div key={index} className="bg-gray-50 p-2 rounded border border-gray-200">
+                            <div key={index} className="bg-gray-50 p-2 rounded border border-gray-200 shadow-sm">
                               <span className="text-sm">{feature}</span>
                             </div>
                           ))}
@@ -339,7 +339,7 @@ export default function Results() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-500 mb-2">Your Uploaded Meme</p>
-                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden">
+                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden shadow-md">
                           {imageUrl ? (
                             <Image
                               src={imageUrl}
@@ -357,7 +357,7 @@ export default function Results() {
                       
                       <div>
                         <p className="text-sm font-medium text-gray-500 mb-2">Matched Meme</p>
-                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden">
+                        <div className="relative aspect-video w-full bg-gray-100 rounded-lg overflow-hidden shadow-md">
                           <Image
                             src={analysisResult.finalMatch.imageUrl}
                             alt="Matched meme"
@@ -368,7 +368,7 @@ export default function Results() {
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
                       <p className="text-sm text-gray-700 font-medium mb-2">Similarity Assessment</p>
                       <p className="text-sm text-gray-700">
                         {analysisResult.finalMatch.explanation || 
@@ -382,7 +382,7 @@ export default function Results() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold mb-2">Creator Style Analysis</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
                         <p className="text-sm text-gray-700">
                           {analysisResult.matchResult.creatorStyle || 
                             `@${analysisResult.finalMatch.creator}'s meme style typically features distinctive visual elements and text formatting.`}
@@ -403,7 +403,7 @@ export default function Results() {
 
                     <div>
                       <h3 className="text-lg font-semibold mb-2">Text Content</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
                         <p className="text-sm text-gray-700">
                           {analysisResult.originalAnalysis.textContent || "No text content was detected in this meme."}
                         </p>
@@ -412,7 +412,7 @@ export default function Results() {
 
                     <div>
                       <h3 className="text-lg font-semibold mb-2">Theme Analysis</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-md">
                         <p className="text-sm text-gray-700">
                           {analysisResult.originalAnalysis.theme || "The theme could not be determined."}
                         </p>
@@ -424,7 +424,7 @@ export default function Results() {
             </CardContent>
             <CardFooter className="pt-6">
               <Button 
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
                 onClick={() => router.push("/")}
               >
                 Analyze Another Meme

@@ -209,7 +209,7 @@ export default function Home() {
   }
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-gray-100 p-4 animate-gradient-x">
+    <main className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-purple-900 via-purple-600 to-pink-500 p-4 animate-gradient-x">
       <div className="absolute top-4 right-4">
         {session ? (
           <Button
@@ -232,17 +232,19 @@ export default function Home() {
         )}
       </div>
 
-      <Card className="w-full max-w-md shadow-xl border-0">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+      <Card className="w-full max-w-md shadow-2xl border-0 rounded-xl bg-white relative overflow-hidden backdrop-blur-sm">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/20 to-transparent pointer-events-none"></div>
+        <div className="absolute -inset-1 bg-gradient-to-b from-white/10 to-transparent rounded-xl blur-sm"></div>
+        <CardHeader className="text-center pb-2 relative z-10">
+          <div className="mx-auto mb-4 w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
             <FileUp className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             claimX
           </CardTitle>
           <CardDescription className="text-gray-500 mt-2">AI-powered meme authorship attribution</CardDescription>
         </CardHeader>
-        <CardContent className="pb-4">
+        <CardContent className="pb-4 relative z-10">
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -252,27 +254,28 @@ export default function Home() {
           )}
 
           <div
-            className={`relative mt-2 rounded-xl border-2 border-dashed p-8 transition-all duration-200 ease-in-out ${
+            className={`relative mt-2 rounded-xl border-2 border-dashed p-8 transition-all duration-200 ease-in-out backdrop-blur-sm overflow-hidden ${
               isDragging
-                ? "border-blue-500 bg-blue-50"
+                ? "border-purple-500 bg-purple-50"
                 : file
                   ? "border-green-500 bg-green-50"
-                  : "border-gray-300 hover:border-gray-400 bg-gray-50"
+                  : "border-gray-300 hover:border-purple-400 bg-gray-50/80"
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div className="flex flex-col items-center justify-center gap-2 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/20 to-transparent pointer-events-none"></div>
+            <div className="flex flex-col items-center justify-center gap-2 text-center relative z-10">
               {!file ? (
                 <>
-                  <Upload className={`h-10 w-10 ${isDragging ? "text-blue-500" : "text-gray-400"}`} />
+                  <Upload className={`h-10 w-10 ${isDragging ? "text-purple-500" : "text-gray-400"}`} />
                   <div className="flex flex-col items-center">
                     <p className="text-sm font-medium text-gray-700">Drag & drop your meme here</p>
                     <p className="text-xs text-gray-500">or</p>
                     <label
                       htmlFor="file-upload"
-                      className="mt-1 cursor-pointer rounded-md bg-white px-3 py-1 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      className="mt-1 cursor-pointer rounded-md bg-white px-3 py-1 text-sm font-semibold text-purple-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
                       Choose file
                     </label>
@@ -320,13 +323,14 @@ export default function Home() {
             </div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="relative z-10">
           <Button
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative overflow-hidden group"
             disabled={!file || isUploading}
             onClick={handleAnalyze}
           >
-            {isUploading ? "Analyzing..." : "Analyze Meme"}
+            <span className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <span className="relative z-10">{isUploading ? "Analyzing..." : "Analyze Meme"}</span>
           </Button>
         </CardFooter>
       </Card>
