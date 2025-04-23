@@ -14,7 +14,7 @@ import type { Session } from '@supabase/supabase-js'
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import FeatureSection from "@/components/feature-section"
-import { storeImage, fileToDataUrl, storeFileAsDataUrl } from "@/lib/imageStorage"
+import { storeMediaUrl, fileToDataUrl, storeFileAsDataUrl } from "@/lib/mediaStorage"
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 
@@ -121,13 +121,20 @@ export default function Home() {
   const validateAndSetFile = (file: File) => {
     setError(null)
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file (JPG, PNG, GIF)")
+    const isImage = file.type.startsWith("image/")
+    const isVideo = file.type === "video/mp4"
+
+    if (!isImage && !isVideo) {
+      setError("Please upload an image (JPG, PNG, GIF) or MP4 video file")
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError("File size exceeds 10MB limit")
+    // Increased limit for videos
+    const sizeLimit = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024 // 50MB for video, 10MB for image
+    const sizeLimitText = isVideo ? "50MB" : "10MB"
+
+    if (file.size > sizeLimit) {
+      setError(`File size exceeds ${sizeLimitText} limit`)
       return
     }
 
@@ -135,7 +142,8 @@ export default function Home() {
       URL.revokeObjectURL(previewUrl)
     }
 
-    const newPreviewUrl = URL.createObjectURL(file)
+    // Only create object URLs for images for preview
+    const newPreviewUrl = isImage ? URL.createObjectURL(file) : null
     setPreviewUrl(newPreviewUrl)
     setFile(file)
   }
@@ -179,16 +187,17 @@ export default function Home() {
       if (file) {
         try {
           // Primary storage as data URL
-          await storeFileAsDataUrl(file, "uploadedImageData")
-          console.log("Image stored as data URL successfully")
+          const storedUrl = await storeFileAsDataUrl(file, "uploadedMediaData")
+          console.log(`Media stored successfully. URL: ${storedUrl.substring(0, 50)}...`)
           
-          // Backup storage as blob URL
+          // Backup storage as blob URL (only for images if preview exists)
           if (previewUrl) {
-            storeImage(previewUrl)
+            storeMediaUrl(previewUrl, "uploadedMedia")
           }
         } catch (err) {
-          console.error("Failed to store image:", err)
-          // Continue anyway, the analysis can still work
+          console.error("Failed to store media:", err)
+          // If storage failed, especially for large videos, we might need to rely on the file object directly
+          // or show an error if analysis absolutely requires a URL.
         }
       }
 
@@ -394,22 +403,32 @@ export default function Home() {
                                   Choose file
                                 </label>
                               </div>
-                              <p className="text-xs text-slate-400 mt-4">(Max file size: 10 MB)</p>
+                              <p className="text-xs text-slate-400 mt-4">(Max file size: {previewUrl ? "50MB" : "10MB"})</p>
                             </>
                           ) : (
                             <div className="flex flex-col items-center w-full pt-3">
-                              <div className="relative w-full max-w-[320px] aspect-square mb-5 overflow-hidden rounded-lg shadow-lg border border-slate-700/50">
+                              {previewUrl ? (
                                 <Image
-                                  src={previewUrl || "/placeholder.svg"}
+                                  src={previewUrl}
                                   alt="Preview"
-                                  fill
-                                  className="object-contain rounded-lg"
+                                  width={100}
+                                  height={100}
+                                  className="h-24 w-24 object-contain rounded-md border border-slate-600"
                                 />
-                              </div>
+                              ) : file?.type.startsWith("video/") ? (
+                                <div className="h-24 w-24 flex items-center justify-center bg-slate-700 rounded-md border border-slate-600">
+                                  <FileUp className="h-8 w-8 text-slate-400" />
+                                </div>
+                              ) : (
+                                <div className="h-24 w-24 flex items-center justify-center bg-slate-700 rounded-md border border-slate-600">
+                                  <Upload className="h-8 w-8 text-slate-400" />
+                                </div>
+                              )}
                               <div className="flex items-center justify-between w-full bg-slate-800/40 backdrop-blur-sm rounded-lg p-4 shadow-md border border-slate-700/50">
                                 <div className="truncate flex-1 mr-3">
                                   <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
                                   <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                                  <p className="text-xs text-slate-400">Type: {file.type}</p>
                                 </div>
                                 <Button
                                   variant="ghost"
@@ -424,7 +443,13 @@ export default function Home() {
                             </div>
                           )}
                         </div>
-                        <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+                        <input 
+                          id="file-upload" 
+                          type="file" 
+                          className="sr-only" 
+                          onChange={handleFileChange} 
+                          accept="image/*,video/mp4"
+                        />
                       </div>
 
                       {isUploading && (

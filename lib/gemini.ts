@@ -26,34 +26,35 @@ const safetySettings = [
   },
 ];
 
-// Agent 1: Analyze the image
-export async function analyzeImageWithGemini(base64Image: string) {
+// Agent 1: Analyze the image or video
+export async function analyzeMediaWithGemini(base64Data: string, mimeType: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
+    // Use a model that supports video input
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     
     const prompt = `
-    You are an AI specialized in analyzing memes. Please examine this image and provide:
+    You are an AI specialized in analyzing visual media (images or videos), particularly memes. Please examine this media and provide:
     
-    1. A detailed description of what's in the image
-    2. Any text found in the image
-    3. Visual elements present (people, objects, etc.)
-    4. The overall theme or joke of the meme
+    1. A detailed description of what's shown or happens in the media
+    2. Any text found (visual text or spoken words if applicable)
+    3. Key visual elements present (people, objects, scenes, actions, etc.)
+    4. The overall theme or joke of the media
     
     Format your response as structured JSON with the following fields:
-    - description: A detailed paragraph describing the whole meme
-    - textContent: All text found in the image
-    - visualElements: Array of key visual elements
-    - theme: The main subject or joke of the meme
+    - description: A detailed paragraph describing the whole media content
+    - textContent: All text found in the media (visual or transcribed)
+    - visualElements: Array of key visual elements or actions
+    - theme: The main subject or joke
     `;
     
-    const image = {
+    const mediaPart = {
       inlineData: {
-        data: base64Image,
-        mimeType: "image/jpeg",
+        data: base64Data,
+        mimeType: mimeType,
       },
     };
     
-    const result = await model.generateContent([prompt, image]);
+    const result = await model.generateContent([prompt, mediaPart]);
     const response = await result.response;
     const text = response.text();
     
@@ -74,8 +75,8 @@ export async function analyzeImageWithGemini(base64Image: string) {
       };
     }
   } catch (error) {
-    console.error("Error in analyzeImageWithGemini:", error);
-    throw new Error("Failed to analyze image with Gemini");
+    console.error("Error in analyzeMediaWithGemini:", error);
+    throw new Error("Failed to analyze media with Gemini");
   }
 }
 
@@ -317,15 +318,15 @@ Reference the following official Instagram copyright and content policies:
 - Instagram removes content that infringes copyright, as outlined in its Community Guidelines and Terms of Use.
 - Claims must clearly identify both the original work and the allegedly infringing content (with links/usernames/descriptions).
 - Claims must include a request for removal of the infringing content and a statement of ownership.
-- Instagram may share the claimant’s contact details with the alleged infringer.
-- The claim should be polite, specific, and reference Instagram’s official reporting process.
-- The email must be in English, formal, and persuasive, suitable for submission to Instagram’s copyright team.
-- Reference Instagram’s Community Guidelines: https://help.instagram.com/477434105621119 and Terms of Use: https://help.instagram.com/478745558852511
+- Instagram may share the claimant's contact details with the alleged infringer.
+- The claim should be polite, specific, and reference Instagram's official reporting process.
+- The email must be in English, formal, and persuasive, suitable for submission to Instagram's copyright team.
+- Reference Instagram's Community Guidelines: https://help.instagram.com/477434105621119 and Terms of Use: https://help.instagram.com/478745558852511
 
 Always structure your response as valid JSON with exactly these fields:
 {
   "subject": "A clear, concise email subject line",
-  "body": "A complete, formal copyright claim email with all required legal details, referencing Instagram’s policies and reporting requirements."
+  "body": "A complete, formal copyright claim email with all required legal details, referencing Instagram's policies and reporting requirements."
 }
 Do NOT include markdown formatting, code blocks, or any text outside the JSON structure.`
 
@@ -367,7 +368,7 @@ Please draft a formal, legally compliant copyright claim email to Instagram that
 IMPORTANT: Respond only with JSON in this exact format:
 {
   "subject": "A clear, concise plain-text email subject line",
-  "body": "A complete, formal plain-text copyright claim email with all required legal details referencing Instagram’s policies. The body must be plain text. No markdown or list formatting. Use paragraphs separated by single blank lines."
+  "body": "A complete, formal plain-text copyright claim email with all required legal details referencing Instagram's policies. The body must be plain text. No markdown or list formatting. Use paragraphs separated by single blank lines."
 }
 `
 

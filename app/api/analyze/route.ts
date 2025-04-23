@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { 
-  analyzeImageWithGemini, 
+  analyzeMediaWithGemini,
   matchDescriptionWithDataset, 
   findClosestMatch, 
   generateMatchAnalysis 
@@ -39,10 +39,11 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64 = buffer.toString("base64");
+    const mimeType = file.type;
     
-    // Step 1: Agent 1 - Analyze image and generate description
-    console.log("Starting Agent 1: Image Analysis");
-    const agent1Result = await analyzeImageWithGemini(base64);
+    // Step 1: Agent 1 - Analyze media and generate description
+    console.log(`Starting Agent 1: Media Analysis (${mimeType})`);
+    const agent1Result = await analyzeMediaWithGemini(base64, mimeType);
     console.log("Agent 1 Analysis completed");
     
     // Step 2: Agent 2 - Match description against dataset
@@ -97,9 +98,9 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error("Error processing image:", error);
+    console.error("Error processing media:", error);
     return NextResponse.json(
-      { error: "Failed to process image", details: (error as Error).message },
+      { error: "Failed to process media", details: (error as Error).message },
       { status: 500 }
     );
   }

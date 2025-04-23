@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
-import { retrieveImage, validateImage, FALLBACK_IMAGE } from "@/lib/imageStorage"
+import { retrieveMediaUrl, validateMediaUrl, FALLBACK_MEDIA_URL, FALLBACK_IMAGE_URL, FALLBACK_VIDEO_URL } from "@/lib/mediaStorage"
 import ReactMarkdown from "react-markdown"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
@@ -55,8 +55,8 @@ interface AnalysisResult {
   matchResult: MatchResult;
 }
 
-// Custom image component with fallback handling
-const ImageWithFallback = ({ 
+// Custom media component with fallback handling
+const MediaWithFallback = ({ 
   src, 
   alt, 
   className = "",
@@ -72,37 +72,92 @@ const ImageWithFallback = ({
   onError?: () => void;
 }) => {
   const [error, setError] = useState(false);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | 'unknown'>('unknown');
+  const [currentSrc, setCurrentSrc] = useState<string | null>(src);
+  
+  useEffect(() => {
+    // Determine media type based on src
+    if (src) {
+      if (src.startsWith('data:video') || src.endsWith('.mp4')) {
+        setMediaType('video');
+      } else if (src.startsWith('data:image') || src.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+        setMediaType('image');
+      } else {
+        // Basic check failed, attempt validation to determine type
+        validateMediaUrl(src).then((isValid: boolean) => {
+          if (isValid) {
+             // How to determine type if basic check failed but validates?
+             // Assume image for now, might need more robust type detection
+             console.warn(`Could not determine media type for ${src.substring(0,30)}, assuming image.`);
+             setMediaType('image');
+          } else {
+             setMediaType('unknown');
+             handleError(); // Treat as error if validation fails
+          }
+        });
+      }
+    } else {
+      setMediaType('unknown');
+    }
+    setCurrentSrc(src); // Update current source when src prop changes
+    setError(false); // Reset error state when src changes
+  }, [src]);
   
   const handleError = () => {
-    console.warn(`Image failed to load: ${src?.substring(0, 30)}...`);
+    console.warn(`Media failed to load: ${currentSrc?.substring(0, 30)}...`);
     setError(true);
     onError?.();
   };
   
   const handleLoad = () => {
-    console.log(`Image loaded successfully: ${alt}`);
+    console.log(`Media loaded successfully: ${alt}`);
+    setError(false); // Reset error on successful load
     onLoad?.();
   };
   
-  return error || !src ? (
-    <Image
-      src={FALLBACK_IMAGE}
-      alt={`${alt} (fallback)`}
-      fill
-      className={className}
-      priority={priority}
-    />
-  ) : (
-    <Image
-      src={src}
-      alt={alt}
-      fill
-      className={className}
-      onError={handleError}
-      onLoad={handleLoad}
-      priority={priority}
-    />
-  );
+  const fallbackSrc = mediaType === 'video' ? FALLBACK_VIDEO_URL : FALLBACK_IMAGE_URL;
+  const finalSrc = error || !currentSrc ? fallbackSrc : currentSrc;
+  const finalAlt = error || !currentSrc ? `${alt} (fallback)` : alt;
+
+  if (mediaType === 'video') {
+    return (
+      <video
+        src={finalSrc}
+        // controls // Add controls if needed
+        autoPlay
+        muted // Muted autoplay is usually allowed
+        loop
+        playsInline
+        className={className}
+        onLoadedData={handleLoad} // Use onLoadedData for video
+        onError={handleError}
+        // title={finalAlt} // Use title attribute for accessibility
+      />
+    );
+  } else if (mediaType === 'image') {
+    return (
+      <Image
+        src={finalSrc}
+        alt={finalAlt}
+        fill
+        className={className}
+        onError={handleError}
+        onLoad={handleLoad}
+        priority={priority}
+      />
+    );
+  } else {
+    // Render fallback image if type is unknown or there was an initial error
+    return (
+       <Image
+         src={FALLBACK_MEDIA_URL}
+         alt={`${alt} (fallback - unknown type)`}
+         fill
+         className={className}
+         priority={priority}
+      />
+    )
+  }
 };
 
 // Results component wrapper with Suspense
@@ -137,8 +192,8 @@ function Results() {
   const searchParams = useSearchParams()
   const [isLoaded, setIsLoaded] = useState(false)
   const [plagiarismScore, setPlagiarismScore] = useState(0)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageFallback, setImageFallback] = useState(false)
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
+  const [mediaFallback, setMediaFallback] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [plagiarismRegions, setPlagiarismRegions] = useState<PlagiarismRegion[]>([])
@@ -146,10 +201,10 @@ function Results() {
   const [isClaimOpen, setIsClaimOpen] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
-  // Function to handle image load errors
-  const handleImageError = () => {
-    console.warn("Image failed to load, using fallback")
-    setImageFallback(true)
+  // Function to handle media load errors
+  const handleMediaError = () => {
+    console.warn("Media failed to load, using fallback")
+    setMediaFallback(true)
   }
 
   useEffect(() => {
@@ -159,66 +214,48 @@ function Results() {
       const parsedResult = JSON.parse(storedResult)
       setAnalysisResult(parsedResult)
       
-      // Get the uploaded image using our utility
-      const loadImages = async () => {
+      // Get the uploaded media using our utility
+      const loadMedia = async () => {
         try {
-          console.log("Attempting to load uploaded image")
+          console.log("Attempting to load uploaded media")
           
-          // First try to get the data URL (most reliable)
-          let uploadedImage = retrieveImage("uploadedImageData")
+          // Retrieve media URL (handles data/blob/too_large)
+          let uploadedMedia = retrieveMediaUrl("uploadedMediaData")
           
-          // If that fails, try the blob URL version (less reliable)
-          if (!uploadedImage) {
-            console.log("Data URL not found, trying blob URL")
-            uploadedImage = retrieveImage("uploadedImage")
-          }
-          
-          if (uploadedImage) {
-            console.log(`Found image: ${uploadedImage.substring(0, 30)}...`)
+          if (uploadedMedia) {
+            console.log(`Found media URL: ${uploadedMedia.substring(0, 30)}...`)
+            setMediaUrl(uploadedMedia)
             
-            // Set immediately to avoid delay in UI
-            setImageUrl(uploadedImage)
-            
-            // Don't validate data URLs as they're already validated when created
-            if (!uploadedImage.startsWith('data:')) {
-              console.log("Validating non-data URL image")
-              // Validate in the background
-              const isValid = await validateImage(uploadedImage)
-              
+            // Validate the URL
+            if (uploadedMedia !== "DATA_URL_TOO_LARGE") {
+              const isValid = await validateMediaUrl(uploadedMedia)
               if (!isValid) {
-                console.warn("Retrieved image failed validation, using fallback")
-                setImageFallback(true)
+                console.warn("Retrieved media failed validation, using fallback")
+                setMediaFallback(true)
+                setMediaUrl(FALLBACK_MEDIA_URL) // Explicitly set fallback URL
+              } else {
+                setMediaFallback(false)
               }
+            } else {
+               // Handle case where data URL was too large
+               console.warn("Media data was too large for storage, using fallback display.");
+               setMediaFallback(true);
+               setMediaUrl(FALLBACK_MEDIA_URL);
             }
+
           } else {
-            console.warn("No image found in storage, using fallback")
-            setImageFallback(true)
-            
-            // As a last resort, try to use a sample image
-            const sampleImages = [
-              "https://placehold.co/600x400/purple/white?text=Sample+Meme+Image",
-              "https://picsum.photos/600/400",
-              "https://placekitten.com/600/400"
-            ]
-            
-            // Try to load a sample image
-            for (const img of sampleImages) {
-              const isValid = await validateImage(img)
-              if (isValid) {
-                console.log("Using sample image as fallback")
-                setImageUrl(img)
-                setImageFallback(false)
-                break
-              }
-            }
+            console.warn("No media URL found in storage, using fallback")
+            setMediaFallback(true)
+            setMediaUrl(FALLBACK_MEDIA_URL)
           }
         } catch (error) {
-          console.error("Error loading image:", error)
-          setImageFallback(true)
+          console.error("Error loading media:", error)
+          setMediaFallback(true)
+          setMediaUrl(FALLBACK_MEDIA_URL)
         }
       }
       
-      loadImages()
+      loadMedia()
       
       // Simulate loading and animating the plagiarism score
       const score = parsedResult.matchResult.percentage || 97
@@ -296,11 +333,11 @@ function Results() {
                 <CardContent className="pt-8 pb-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-4">
-                      <h3 className="text-md font-medium text-slate-200">Content Analysis</h3>
+                      <h3 className="text-md font-medium text-white">Content Analysis</h3>
                       <Skeleton className="relative aspect-square w-full mb-4 bg-slate-700/50 rounded-lg" />
                       <div>
                         <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium text-slate-300">Plagiarism Score</span>
+                          <span className="text-sm font-medium text-white">Plagiarism Score</span>
                           <Skeleton className="h-6 w-16 bg-slate-700/50" />
                         </div>
                         <Skeleton className="h-2.5 w-full bg-slate-700/50 rounded-full" />
@@ -308,7 +345,7 @@ function Results() {
                     </div>
                     
                     <div className="md:col-span-2 space-y-6">
-                      <h3 className="text-md font-medium text-slate-200">Attribution Results</h3>
+                      <h3 className="text-md font-medium text-white">Attribution Results</h3>
                       <div className="space-y-6">
                         <Skeleton className="h-6 w-3/4 bg-slate-700/50" />
                         <Skeleton className="h-6 w-full bg-slate-700/50" />
@@ -393,11 +430,11 @@ function Results() {
                   <div className="md:col-span-1 p-6 border-r border-slate-700/30">
                     <div className="space-y-6">
                       <div className="relative aspect-square w-full mb-4 bg-slate-700/30 rounded-lg overflow-hidden shadow-lg border border-slate-700/50">
-                        <ImageWithFallback
-                          src={imageUrl}
+                        <MediaWithFallback
+                          src={mediaUrl}
                           alt="Analyzed content"
                           className="object-contain"
-                          onError={handleImageError}
+                          onError={handleMediaError}
                           priority
                         />
                       </div>
@@ -470,9 +507,9 @@ function Results() {
                       <div className="border-b border-slate-700/30">
                         <div className="px-6">
                           <TabsList className="grid w-full grid-cols-3 mt-1 bg-slate-800/50">
-                            <TabsTrigger value="details" className="data-[state=active]:bg-slate-700/50">Details</TabsTrigger>
-                            <TabsTrigger value="comparison" className="data-[state=active]:bg-slate-700/50">Comparison</TabsTrigger>
-                            <TabsTrigger value="analysis" className="data-[state=active]:bg-slate-700/50">Analysis</TabsTrigger>
+                            <TabsTrigger value="details" className="data-[state=active]:bg-slate-700/80 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-blue-400 text-slate-300 hover:text-white transition-all">Details</TabsTrigger>
+                            <TabsTrigger value="comparison" className="data-[state=active]:bg-slate-700/80 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-blue-400 text-slate-300 hover:text-white transition-all">Comparison</TabsTrigger>
+                            <TabsTrigger value="analysis" className="data-[state=active]:bg-slate-700/80 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-blue-400 text-slate-300 hover:text-white transition-all">Analysis</TabsTrigger>
                           </TabsList>
                         </div>
                       </div>
@@ -553,11 +590,11 @@ function Results() {
                             <div>
                               <p className="text-sm font-medium text-slate-300 mb-2">Your Uploaded Content</p>
                               <div className="relative aspect-video w-full bg-slate-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-md border border-slate-700/50">
-                                <ImageWithFallback
-                                  src={imageUrl}
+                                <MediaWithFallback
+                                  src={mediaUrl}
                                   alt="Your uploaded content"
                                   className="object-contain"
-                                  onError={handleImageError}
+                                  onError={handleMediaError}
                                   priority
                                 />
                               </div>
@@ -566,7 +603,7 @@ function Results() {
                             <div>
                               <p className="text-sm font-medium text-slate-300 mb-2">Original Content</p>
                               <div className="relative aspect-video w-full bg-slate-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-md border border-slate-700/50">
-                                <ImageWithFallback
+                                <MediaWithFallback
                                   src={analysisResult.finalMatch.imageUrl}
                                   alt="Original content"
                                   className="object-contain"
