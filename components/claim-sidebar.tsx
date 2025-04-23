@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertCircle, Mail, Send } from "lucide-react"
+import { AlertCircle, Mail, Send, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
+import { motion } from "framer-motion"
+import { Loader2 } from "lucide-react"
 
 interface ClaimSidebarProps {
   open: boolean
@@ -88,85 +90,126 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
     const bd = encodeURIComponent(body)
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${bd}`
     window.open(gmailUrl, '_blank')
+    
+    toast({
+      title: "Email draft opened",
+      description: "A new email has been prepared in your browser",
+      variant: "default",
+    })
+    
     setOpen(false)
   }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="sm:max-w-md bg-slate-900 text-slate-200 border border-slate-800 p-6 rounded-lg shadow-lg">
-        <SheetHeader className="pb-4 border-b border-slate-800 mb-4">
-          <SheetTitle className="flex items-center gap-2 text-lg font-semibold">
-            <Mail className="h-5 w-5" />
-            Copyright Claim Email
-          </SheetTitle>
-          <SheetDescription className="text-slate-400 text-sm">
-            Create a professional copyright claim email to send to Instagram.
-          </SheetDescription>
-        </SheetHeader>
-
-        {error && (
-          <div className="mb-4 flex items-center gap-2 text-red-400">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-            <div className="text-sm">{error}</div>
-          </div>
-        )}
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
-            {isGenerating ? (
-              <Skeleton className="h-10 w-full bg-slate-800" />
-            ) : (
-              <Input
-                id="subject"
-                placeholder="Email subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="resize-none bg-slate-800 text-slate-200 placeholder-slate-400 border border-slate-700"
-              />
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="body">Email Content</Label>
-            {isGenerating ? (
-              <div className="space-y-2">
-                <Skeleton className="h-[200px] w-full bg-slate-800" />
-                <div className="text-sm text-muted-foreground animate-pulse">
-                  Generating email content...
-                </div>
+      <SheetContent className="sm:max-w-md bg-slate-800/40 backdrop-blur-sm text-slate-200 border border-slate-700/50 p-6 rounded-lg shadow-xl overflow-y-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <SheetHeader className="pb-4 border-b border-slate-700/30 mb-4">
+            <SheetTitle className="flex items-center gap-2 text-xl font-semibold text-slate-100">
+              <div className="p-2 bg-gradient-to-br from-slate-700/80 to-slate-900/80 rounded-lg shadow-md">
+                <Mail className="h-5 w-5 text-slate-200" />
               </div>
-            ) : (
-              <Textarea
-                id="body"
-                placeholder="Email content"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="min-h-[200px] resize-none bg-slate-800 text-slate-200 placeholder-slate-400 border border-slate-700"
-              />
-            )}
-          </div>
-        </div>
+              Copyright Claim Email
+            </SheetTitle>
+            <SheetDescription className="text-slate-300 text-sm">
+              Create a professional copyright claim email to send to Instagram.
+            </SheetDescription>
+          </SheetHeader>
 
-        <SheetFooter className="pt-4 border-t border-slate-800 flex justify-end gap-2">
-          <Button
-            variant="outline"
-            className="border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
-            onClick={generateClaimEmail}
-            disabled={isGenerating}
-          >
-            Regenerate
-          </Button>
-          <Button 
-            variant="default"
-            onClick={handleSend}
-            disabled={isGenerating || !subject || !body}
-            className="w-full mt-4"
-          >
-            <Send className="mr-2 h-4 w-4" />
-            Send to Instagram Support
-          </Button>
-        </SheetFooter>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="mb-4 flex items-center gap-2 bg-red-900/20 border border-red-500/20 text-red-400 p-3 rounded-lg"
+            >
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <div className="text-sm">{error}</div>
+            </motion.div>
+          )}
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject" className="text-slate-300 text-sm font-medium">Subject</Label>
+              {isGenerating ? (
+                <Skeleton className="h-10 w-full bg-slate-700/40 rounded-lg" />
+              ) : (
+                <Input
+                  id="subject"
+                  placeholder="Email subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="resize-none bg-slate-800/50 text-slate-200 placeholder:text-slate-500 border border-slate-700/50 focus:border-slate-500 rounded-lg shadow-inner"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="body" className="text-slate-300 text-sm font-medium">Email Content</Label>
+              {isGenerating ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-[200px] w-full bg-slate-700/40 rounded-lg" />
+                  <div className="text-sm text-slate-400 flex items-center justify-center gap-2">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Loader2 className="h-4 w-4" />
+                    </motion.div>
+                    Generating email content...
+                  </div>
+                </div>
+              ) : (
+                <Textarea
+                  id="body"
+                  placeholder="Email content"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  className="min-h-[200px] resize-none bg-slate-800/50 text-slate-200 placeholder:text-slate-500 border border-slate-700/50 focus:border-slate-500 rounded-lg shadow-inner"
+                />
+              )}
+            </div>
+          </div>
+
+          <SheetFooter className="pt-4 border-t border-slate-700/30 flex flex-col sm:flex-row justify-end gap-3">
+            <Button
+              variant="outline"
+              className="border-slate-700/50 bg-slate-800/50 text-slate-200 hover:bg-slate-700/50 hover:text-white transition-all duration-300"
+              onClick={generateClaimEmail}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="mr-2"
+                  >
+                    <Loader2 className="h-4 w-4" />
+                  </motion.div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Regenerate
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handleSend}
+              disabled={isGenerating || !subject || !body}
+              className="bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-sm hover:from-slate-600/80 hover:to-slate-700/80 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] rounded-lg"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Send to Instagram Support
+            </Button>
+          </SheetFooter>
+        </motion.div>
       </SheetContent>
     </Sheet>
   )
