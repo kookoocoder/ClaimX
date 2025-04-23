@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import fs from "fs"
+import path from "path"
 
 // Initialize the Gemini API
 const apiKey = process.env.GOOGLE_AI_API_KEY || "your-api-key";
@@ -27,7 +29,7 @@ const safetySettings = [
 // Agent 1: Analyze the image
 export async function analyzeImageWithGemini(base64Image: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const prompt = `
     You are an AI specialized in analyzing memes. Please examine this image and provide:
@@ -80,7 +82,7 @@ export async function analyzeImageWithGemini(base64Image: string) {
 // Agent 2: Match description with dataset
 export async function matchDescriptionWithDataset(description: string, dataset: any[]) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const datasetSummary = dataset.map((item, index) => `
     Item ${index + 1}:
@@ -165,7 +167,7 @@ export async function findClosestMatch(originalDescription: string, matches: any
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const matchesDetails = matches.map((item, index) => `
     Match ${index + 1}:
@@ -247,7 +249,7 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const prompt = `
     You are an AI specialized in analyzing meme attribution. I have a meme and a potential creator match.
@@ -256,7 +258,7 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
     "${originalDescription}"
     
     Matched creator and post:
-    - Creator: ${finalMatch.creator_username ?? 'Unknown'}
+    - Creator: @${finalMatch.creator_username ?? 'Unknown'}
     - Post Description: ${finalMatch.description ?? 'No description'}
     - Upload Date: ${finalMatch.upload_date ?? 'Unknown'}
     
@@ -306,141 +308,109 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
   }
 }
 
-// Agent for plagiarism detection: Uses Gemini Vision to detect plagiarized regions
-export async function detectPlagiarismWithGemini(
-  originalImageBase64: string,
-  comparisonImageBase64: string
+// System prompt for Gemini copyright claim email generation
+const SYSTEM_PROMPT = `
+You are an expert legal assistant specializing in copyright law and digital content protection. Your role is to draft highly professional, formal, and legally compliant copyright claim emails specifically for Instagram.
+
+Reference the following official Instagram copyright and content policies:
+- Only the copyright owner or their authorized representative may submit a claim.
+- Instagram removes content that infringes copyright, as outlined in its Community Guidelines and Terms of Use.
+- Claims must clearly identify both the original work and the allegedly infringing content (with links/usernames/descriptions).
+- Claims must include a request for removal of the infringing content and a statement of ownership.
+- Instagram may share the claimant’s contact details with the alleged infringer.
+- The claim should be polite, specific, and reference Instagram’s official reporting process.
+- The email must be in English, formal, and persuasive, suitable for submission to Instagram’s copyright team.
+- Reference Instagram’s Community Guidelines: https://help.instagram.com/477434105621119 and Terms of Use: https://help.instagram.com/478745558852511
+
+Always structure your response as valid JSON with exactly these fields:
+{
+  "subject": "A clear, concise email subject line",
+  "body": "A complete, formal copyright claim email with all required legal details, referencing Instagram’s policies and reporting requirements."
+}
+Do NOT include markdown formatting, code blocks, or any text outside the JSON structure.`
+
+// Agent 5: Generate copyright claim email
+export async function generateCopyrightClaimEmail(
+  originalAnalysis: any,
+  finalMatch: any
 ) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-vision" });
-    
-    const originalImage = {
-      inlineData: {
-        data: originalImageBase64,
-        mimeType: "image/jpeg",
-      },
-    };
-    
-    const comparisonImage = {
-      inlineData: {
-        data: comparisonImageBase64,
-        mimeType: "image/jpeg",
-      },
-    };
-    
-    const prompt = `
-    You are an advanced plagiarism detection system specialized in analyzing images and memes.
-    
-    I'll provide two images - an uploaded image and a potential source image it might have copied from.
-    Your task is to identify specific regions or elements in the uploaded image that appear to be copied or derived from the source image.
+    // Read the latest Instagram copyright policy from file
+    const policyPath = path.join(process.cwd(), "lib", "instagram-copyright-policy.txt")
+    const policyText = fs.readFileSync(policyPath, "utf-8")
 
-    UPLOADED IMAGE: This is the first image I'm showing you.
-    
-    SOURCE IMAGE: This is the second image I'm showing you.
-    
-    Analyze both images and:
-    
-    1. Determine if the entire uploaded image appears to be copied from the source. 
-    2. If not a complete copy, identify specific elements that appear to be copied:
-       - Text/captions with similar wording or formatting
-       - Central visual elements or characters
-       - Background patterns or designs
-       - Layout structure and composition
-       - Watermarks or attribution elements
-    
-    For each detected similarity, provide:
-    - The type of element (text, visual, background, etc.)
-    - A description of what was copied
-    - The confidence level (0-100) that this is plagiarism
-    - The approximate position in the image (as percentages from top-left):
-      * x: horizontal position from left edge (0-100%)
-      * y: vertical position from top edge (0-100%)
-      * width: width of the region (0-100%)
-      * height: height of the region (0-100%)
-    
-    Format your response as structured JSON with the following fields:
-    - isFullImageCopy: boolean indicating if the entire image appears copied
-    - overallConfidence: number from 0-100 indicating overall plagiarism confidence
-    - regions: array of detected regions, each with:
-      * type: string (text, visual, background, layout, etc.)
-      * description: string describing what was copied
-      * confidence: number from 0-100
-      * x: number (percentage from left, 0-100)
-      * y: number (percentage from top, 0-100)
-      * width: number (percentage of image width, 0-100)
-      * height: number (percentage of image height, 0-100)
-    `;
-    
-    const result = await model.generateContent([prompt, originalImage, comparisonImage]);
-    const response = await result.response;
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash-001",
+      generationConfig: {
+        maxOutputTokens: 4096,
+        temperature: 0.4,
+      },
+    });
+
+    const prompt = `INSTAGRAM COPYRIGHT POLICY (for reference):
+${policyText}
+
+Original Content:
+Description: ${originalAnalysis.description || 'N/A'}
+Text: ${originalAnalysis.textContent || 'N/A'}
+Visual Elements: ${Array.isArray(originalAnalysis.visualElements) ? originalAnalysis.visualElements.join(', ') : 'N/A'}
+Theme: ${originalAnalysis.theme || 'N/A'}
+
+Matched Content Information:
+Creator: @${finalMatch.creator || 'Unknown'}
+Original Post URL: ${finalMatch.postLink || 'N/A'}
+Upload Date: ${finalMatch.uploadDate || 'N/A'}
+Similarity Score: ${finalMatch.similarityScore || 0}%
+
+Please draft a formal, legally compliant copyright claim email to Instagram that references the policy and above details.
+
+IMPORTANT: Respond only with JSON in this exact format:
+{
+  "subject": "A clear, concise plain-text email subject line",
+  "body": "A complete, formal plain-text copyright claim email with all required legal details referencing Instagram’s policies. The body must be plain text. No markdown or list formatting. Use paragraphs separated by single blank lines."
+}
+`
+
+    // Use the non-streaming API for simplicity and better compatibility
+    const result = await model.generateContent(prompt);
+    const response = result.response;
     const text = response.text();
     
-    // Extract the JSON from the response
-    const jsonMatch = text.match(/```json\n([\s\S]*)\n```/) || text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text;
+    // Clean the response text of any markdown code blocks
+    const cleanText = text.replace(/```json\n/g, "").replace(/```/g, "");
     
     try {
-      const parsed = JSON.parse(jsonStr);
+      // Try to parse as JSON
+      const parsedJson = JSON.parse(cleanText);
       
-      // Validate and sanitize the response
-      const isFullImageCopy = Boolean(parsed.isFullImageCopy);
-      const overallConfidence = Number(parsed.overallConfidence) || 0;
-      
-      // Ensure regions is an array and each region has valid values
-      const regions = Array.isArray(parsed.regions) 
-        ? parsed.regions.map((region: any) => ({
-            type: String(region.type || "unknown"),
-            description: String(region.description || "No description provided"),
-            confidence: Number(region.confidence) || 0,
-            x: Math.min(100, Math.max(0, Number(region.x) || 0)),
-            y: Math.min(100, Math.max(0, Number(region.y) || 0)),
-            width: Math.min(100, Math.max(0, Number(region.width) || 0)),
-            height: Math.min(100, Math.max(0, Number(region.height) || 0)),
-            isFullImage: isFullImageCopy
-          }))
-        : [];
-      
-      // If it's a full image copy and there are no regions, add a full image region
-      if (isFullImageCopy && regions.length === 0) {
-        regions.push({
-          type: "full-image",
-          description: "Entire image appears to be copied with minimal or no modifications",
-          confidence: overallConfidence,
-          x: 1,
-          y: 1,
-          width: 98,
-          height: 98,
-          isFullImage: true
-        });
+      // Validate the response has required fields
+      if (parsedJson.subject && parsedJson.body) {
+        return parsedJson;
+      } else {
+        throw new Error("Missing required fields in response");
+      }
+    } catch (jsonError) {
+      // If JSON parsing fails, try to extract JSON using regex
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const extractedJson = JSON.parse(jsonMatch[0]);
+          if (extractedJson.subject && extractedJson.body) {
+            return extractedJson;
+          }
+        } catch (extractError) {
+          // Extraction failed, fall through to fallback
+        }
       }
       
+      // Fallback to using the text as the body
       return {
-        isFullImageCopy,
-        overallConfidence,
-        regions
-      };
-    } catch (error) {
-      console.error("Failed to parse JSON from Gemini response for plagiarism detection", { text, error });
-      // Fallback to simulated detection
-      return {
-        isFullImageCopy: false,
-        overallConfidence: 75,
-        regions: [
-          {
-            type: "visual",
-            description: "Central visual element appears similar (fallback detection)",
-            confidence: 75,
-            x: 25,
-            y: 30,
-            width: 50,
-            height: 40,
-            isFullImage: false
-          }
-        ]
+        subject: "Copyright Claim for Instagram Content",
+        body: text.trim() || "We were unable to generate a proper email. Please try again."
       };
     }
   } catch (error) {
-    console.error("Error in detectPlagiarismWithGemini:", error);
-    throw new Error("Failed to detect plagiarism with Gemini");
+    console.error("Error in generateCopyrightClaimEmail:", error);
+    throw new Error("Failed to generate copyright claim email");
   }
-} 
+}

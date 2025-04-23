@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link } from "lucide-react"
+import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { motion } from "framer-motion"
+import { ClaimSidebar } from "@/components/claim-sidebar"
 
 interface MatchResult {
   percentage: number;
@@ -105,6 +106,9 @@ export default function Results() {
   const [imageFallback, setImageFallback] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [plagiarismRegions, setPlagiarismRegions] = useState<PlagiarismRegion[]>([])
+  const [isPlagiarismLoading, setIsPlagiarismLoading] = useState(false)
+  const [isClaimOpen, setIsClaimOpen] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   // Function to handle image load errors
@@ -312,6 +316,9 @@ export default function Results() {
                 </Button>
                 <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
                   <Share2 className="h-4 w-4 mr-1" /> Share
+                </Button>
+                <Button variant="destructive" size="sm" className="bg-red-600 text-white hover:bg-red-700" onClick={() => setIsClaimOpen(true)}>
+                  <Mail className="h-4 w-4 mr-1" /> Send Claim
                 </Button>
               </div>
             </div>
@@ -625,6 +632,14 @@ ${analysisResult.matchResult.features?.length > 0 ?
           </motion.div>
         </div>
       </main>
+      {analysisResult && (
+        <ClaimSidebar
+          open={isClaimOpen}
+          setOpen={setIsClaimOpen}
+          originalAnalysis={analysisResult.originalAnalysis}
+          finalMatch={analysisResult.finalMatch}
+        />
+      )}
       <Footer />
     </div>
   )
