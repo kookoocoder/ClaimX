@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import fs from "fs"
+import path from "path"
 
 // Initialize the Gemini API
 const apiKey = process.env.GOOGLE_AI_API_KEY || "your-api-key";
@@ -27,7 +29,7 @@ const safetySettings = [
 // Agent 1: Analyze the image
 export async function analyzeImageWithGemini(base64Image: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const prompt = `
     You are an AI specialized in analyzing memes. Please examine this image and provide:
@@ -80,7 +82,7 @@ export async function analyzeImageWithGemini(base64Image: string) {
 // Agent 2: Match description with dataset
 export async function matchDescriptionWithDataset(description: string, dataset: any[]) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const datasetSummary = dataset.map((item, index) => `
     Item ${index + 1}:
@@ -165,7 +167,7 @@ export async function findClosestMatch(originalDescription: string, matches: any
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const matchesDetails = matches.map((item, index) => `
     Match ${index + 1}:
@@ -247,7 +249,7 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
     
     const prompt = `
     You are an AI specialized in analyzing meme attribution. I have a meme and a potential creator match.
@@ -256,7 +258,7 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
     "${originalDescription}"
     
     Matched creator and post:
-    - Creator: ${finalMatch.creator_username ?? 'Unknown'}
+    - Creator: @${finalMatch.creator_username ?? 'Unknown'}
     - Post Description: ${finalMatch.description ?? 'No description'}
     - Upload Date: ${finalMatch.upload_date ?? 'Unknown'}
     
@@ -304,4 +306,111 @@ export async function generateMatchAnalysis(originalDescription: string, finalMa
     console.error("Error in generateMatchAnalysis:", error);
     throw new Error("Failed to generate match analysis");
   }
-} 
+}
+
+// System prompt for Gemini copyright claim email generation
+const SYSTEM_PROMPT = `
+You are an expert legal assistant specializing in copyright law and digital content protection. Your role is to draft highly professional, formal, and legally compliant copyright claim emails specifically for Instagram.
+
+Reference the following official Instagram copyright and content policies:
+- Only the copyright owner or their authorized representative may submit a claim.
+- Instagram removes content that infringes copyright, as outlined in its Community Guidelines and Terms of Use.
+- Claims must clearly identify both the original work and the allegedly infringing content (with links/usernames/descriptions).
+- Claims must include a request for removal of the infringing content and a statement of ownership.
+- Instagram may share the claimant’s contact details with the alleged infringer.
+- The claim should be polite, specific, and reference Instagram’s official reporting process.
+- The email must be in English, formal, and persuasive, suitable for submission to Instagram’s copyright team.
+- Reference Instagram’s Community Guidelines: https://help.instagram.com/477434105621119 and Terms of Use: https://help.instagram.com/478745558852511
+
+Always structure your response as valid JSON with exactly these fields:
+{
+  "subject": "A clear, concise email subject line",
+  "body": "A complete, formal copyright claim email with all required legal details, referencing Instagram’s policies and reporting requirements."
+}
+Do NOT include markdown formatting, code blocks, or any text outside the JSON structure.`
+
+// Agent 5: Generate copyright claim email
+export async function generateCopyrightClaimEmail(
+  originalAnalysis: any,
+  finalMatch: any
+) {
+  try {
+    // Read the latest Instagram copyright policy from file
+    const policyPath = path.join(process.cwd(), "lib", "instagram-copyright-policy.txt")
+    const policyText = fs.readFileSync(policyPath, "utf-8")
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash-001",
+      generationConfig: {
+        maxOutputTokens: 4096,
+        temperature: 0.4,
+      },
+    });
+
+    const prompt = `INSTAGRAM COPYRIGHT POLICY (for reference):
+${policyText}
+
+Original Content:
+Description: ${originalAnalysis.description || 'N/A'}
+Text: ${originalAnalysis.textContent || 'N/A'}
+Visual Elements: ${Array.isArray(originalAnalysis.visualElements) ? originalAnalysis.visualElements.join(', ') : 'N/A'}
+Theme: ${originalAnalysis.theme || 'N/A'}
+
+Matched Content Information:
+Creator: @${finalMatch.creator || 'Unknown'}
+Original Post URL: ${finalMatch.postLink || 'N/A'}
+Upload Date: ${finalMatch.uploadDate || 'N/A'}
+Similarity Score: ${finalMatch.similarityScore || 0}%
+
+Please draft a formal, legally compliant copyright claim email to Instagram that references the policy and above details.
+
+IMPORTANT: Respond only with JSON in this exact format:
+{
+  "subject": "A clear, concise plain-text email subject line",
+  "body": "A complete, formal plain-text copyright claim email with all required legal details referencing Instagram’s policies. The body must be plain text. No markdown or list formatting. Use paragraphs separated by single blank lines."
+}
+`
+
+    // Use the non-streaming API for simplicity and better compatibility
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+    
+    // Clean the response text of any markdown code blocks
+    const cleanText = text.replace(/```json\n/g, "").replace(/```/g, "");
+    
+    try {
+      // Try to parse as JSON
+      const parsedJson = JSON.parse(cleanText);
+      
+      // Validate the response has required fields
+      if (parsedJson.subject && parsedJson.body) {
+        return parsedJson;
+      } else {
+        throw new Error("Missing required fields in response");
+      }
+    } catch (jsonError) {
+      // If JSON parsing fails, try to extract JSON using regex
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const extractedJson = JSON.parse(jsonMatch[0]);
+          if (extractedJson.subject && extractedJson.body) {
+            return extractedJson;
+          }
+        } catch (extractError) {
+          // Extraction failed, fall through to fallback
+        }
+      }
+      
+      // Fallback to using the text as the body
+      return {
+        subject: "Copyright Claim for Instagram Content",
+        body: text.trim() || "We were unable to generate a proper email. Please try again."
+      };
+    }
+  } catch (error) {
+    console.error("Error in generateCopyrightClaimEmail:", error);
+    throw new Error("Failed to generate copyright claim email");
+  }
+}

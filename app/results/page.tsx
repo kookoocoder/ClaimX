@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link } from "lucide-react"
+import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlagiarismRegion, detectPlagiarismRegions, getPlagiarismRegionStyle } from "@/lib/plagiarismDetection"
 import { retrieveImage, validateImage, FALLBACK_IMAGE } from "@/lib/imageStorage"
+import { ClaimSidebar } from "@/components/claim-sidebar"
 
 interface MatchResult {
   percentage: number;
@@ -104,6 +105,7 @@ export default function Results() {
   const [isLoading, setIsLoading] = useState(true)
   const [plagiarismRegions, setPlagiarismRegions] = useState<PlagiarismRegion[]>([])
   const [isPlagiarismLoading, setIsPlagiarismLoading] = useState(false)
+  const [isClaimOpen, setIsClaimOpen] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   // Function to handle image load errors
@@ -359,6 +361,15 @@ export default function Results() {
                     <Share2 className="h-4 w-4 mr-1" /> Share
                   </Button>
                 </div>
+                
+                <Button 
+                  variant="secondary"
+                  size="sm"
+                  className="w-full mt-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                  onClick={() => setIsClaimOpen(true)}
+                >
+                  <Mail className="h-4 w-4 mr-1" /> Send Copyright Claim
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -676,6 +687,14 @@ export default function Results() {
           </Card>
         </div>
       </div>
+      {analysisResult && (
+        <ClaimSidebar 
+          open={isClaimOpen} 
+          setOpen={setIsClaimOpen}
+          originalAnalysis={analysisResult.originalAnalysis}
+          finalMatch={analysisResult.finalMatch}
+        />
+      )}
     </main>
   )
 }
