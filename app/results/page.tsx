@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail } from "lucide-react"
+import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,8 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { motion } from "framer-motion"
 import { ClaimSidebar } from "@/components/claim-sidebar"
+import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, ExternalHyperlink, AlignmentType, WidthType, Table, TableRow, TableCell, VerticalAlign } from "docx"
+import { saveAs } from 'file-saver'
 
 interface MatchResult {
   percentage: number;
@@ -187,6 +189,40 @@ function LoadingUI() {
   );
 }
 
+// Helper function to fetch image data as ArrayBuffer
+async function fetchImageBuffer(url: string): Promise<ArrayBuffer | undefined> {
+  try {
+    if (url.startsWith('data:image')) {
+      // Handle data URLs
+      const base64 = url.split(',')[1];
+      if (!base64) return undefined;
+      const binaryString = window.atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    } else if (url.startsWith('http')) {
+       // Handle regular URLs (potential CORS issues)
+       // Using a proxy might be needed for external URLs if CORS blocks direct fetch
+      console.log("Fetching image from URL:", url);
+      const response = await fetch(url); // Consider adding { mode: 'cors' } or needing a proxy
+      if (!response.ok) {
+        console.error(`Failed to fetch image: ${response.statusText}`);
+        return undefined;
+      }
+      return await response.arrayBuffer();
+    } else {
+       console.warn("Unsupported image URL format:", url);
+       return undefined;
+    }
+  } catch (error) {
+    console.error("Error fetching image buffer:", error);
+    return undefined;
+  }
+}
+
 function Results() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -199,6 +235,7 @@ function Results() {
   const [plagiarismRegions, setPlagiarismRegions] = useState<PlagiarismRegion[]>([])
   const [isPlagiarismLoading, setIsPlagiarismLoading] = useState(false)
   const [isClaimOpen, setIsClaimOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   // Function to handle media load errors
@@ -305,6 +342,197 @@ function Results() {
     }
   }
 
+  // --- Export Functionality ---
+  const handleExport = async () => {
+    if (!analysisResult) return;
+    setIsExporting(true);
+    console.log("Starting export...");
+
+    try {
+      const { finalMatch, matchResult, originalAnalysis } = analysisResult;
+      const uploadedMediaType = mediaUrl?.startsWith('data:video') || mediaUrl?.endsWith('.mp4') ? 'video' : 'image';
+      // Determine original media type (assuming image if imageUrl is present)
+      const originalMediaType = finalMatch.imageUrl ? (finalMatch.imageUrl.endsWith('.mp4') ? 'video' : 'image') : 'unknown'; 
+      
+      // --- Define Document Structure ---
+      const docSections = [];
+
+      // Title
+      docSections.push(
+        new Paragraph({ 
+          heading: HeadingLevel.TITLE, 
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: "ClaimX Analysis Report", bold: true, size: 44 })],
+          spacing: { after: 400 },
+        })
+      );
+
+      // Summary Table
+      docSections.push(
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun("Analysis Summary")],
+          spacing: { before: 300, after: 200 },
+        })
+      );
+      const summaryTable = new Table({
+         width: { size: 100, type: WidthType.PERCENTAGE },
+         rows: [
+            new TableRow({
+               children: [
+                  new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, children: [new Paragraph({children: [new TextRun({ text: "Plagiarism Score:", bold: true })]})] }),
+                  new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, children: [new Paragraph(`${plagiarismScore}%`)] }),
+               ],
+            }),
+            new TableRow({
+               children: [
+                  new TableCell({ children: [new Paragraph({children: [new TextRun({ text: "Original Creator:", bold: true })]})] }),
+                  new TableCell({ children: [new Paragraph(`@${finalMatch.creator}`)] }),
+               ],
+            }),
+             new TableRow({
+               children: [
+                  new TableCell({ children: [new Paragraph({children: [new TextRun({ text: "Original Upload Date:", bold: true })]})] }),
+                  new TableCell({ children: [new Paragraph(formatDate(finalMatch.uploadDate))] }),
+               ],
+            }),
+            new TableRow({
+               children: [
+                  new TableCell({ children: [new Paragraph({children: [new TextRun({ text: "Original Source:", bold: true })]})] }),
+                  new TableCell({ children: [
+                     new Paragraph({ children: [
+                         finalMatch.postLink ? new ExternalHyperlink({
+                            children: [ new TextRun({ text: finalMatch.postLink, style: "Hyperlink" }) ],
+                            link: finalMatch.postLink,
+                         }) : new TextRun("N/A"),
+                     ]}),
+                  ]}),
+               ],
+            }),
+         ],
+      });
+      docSections.push(summaryTable);
+
+      // Media Comparison Section
+      docSections.push(
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun("Media Comparison")],
+          spacing: { before: 400, after: 200 },
+        })
+      );
+      
+      const comparisonTable = new Table({
+         columnWidths: [4500, 4500],
+         width: { size: 100, type: WidthType.PERCENTAGE },
+         rows: [
+            // Headers
+            new TableRow({
+               children: [
+                  new TableCell({ verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Your Uploaded Content", bold: true })] })] }),
+                  new TableCell({ verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Detected Original Content", bold: true })] })] }),
+               ]
+            }),
+            // Media Row (Text Placeholders and Links)
+            new TableRow({
+               children: [
+                  // Uploaded Media Cell
+                  new TableCell({
+                      verticalAlign: VerticalAlign.TOP,
+                      children: [
+                          new Paragraph(`(${uploadedMediaType === 'video' ? 'Video' : 'Image'} Uploaded)`),
+                          // Add link if mediaUrl exists
+                          mediaUrl && !mediaUrl.startsWith('data:') ? new Paragraph({ 
+                              alignment: AlignmentType.CENTER,
+                              children: [ new ExternalHyperlink({ children: [ new TextRun({ text: "View Uploaded Media", style: "Hyperlink" }) ], link: mediaUrl }) ]
+                          }) : new Paragraph("(Preview not available)") 
+                      ]
+                  }),
+                  // Original Media Cell
+                  new TableCell({
+                     verticalAlign: VerticalAlign.TOP,
+                     children: [
+                          new Paragraph(`(Original ${originalMediaType === 'video' ? 'Video' : originalMediaType === 'image' ? 'Image' : 'Media'})`),
+                          // Add link if imageUrl exists
+                          finalMatch.imageUrl && !finalMatch.imageUrl.startsWith('data:') ? new Paragraph({ 
+                              alignment: AlignmentType.CENTER,
+                              children: [ new ExternalHyperlink({ children: [ new TextRun({ text: "View Original Media", style: "Hyperlink" }) ], link: finalMatch.imageUrl }) ]
+                          }) : new Paragraph("(Preview not available)"),
+                          // Add link to post source
+                          finalMatch.postLink ? new Paragraph({ 
+                              alignment: AlignmentType.CENTER,
+                              children: [ new TextRun("Source Post: "), new ExternalHyperlink({ children: [ new TextRun({ text: "Link", style: "Hyperlink" }) ], link: finalMatch.postLink }) ]
+                          }) : new Paragraph("") 
+                     ]
+                  }),
+               ]
+            })
+         ]
+      });
+      docSections.push(comparisonTable);
+      
+       // Detailed Analysis Section
+      docSections.push(
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun("Detailed Analysis")],
+          spacing: { before: 400, after: 200 },
+        })
+      );
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Plagiarism Details:", bold: true })], spacing: { after: 100 } }));
+      docSections.push(new Paragraph(originalAnalysis.description || "No description provided."));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Plagiarized Elements:", bold: true })], spacing: { before: 200, after: 100 } }));
+      matchResult.features.forEach((feature: string) => docSections.push(new Paragraph({ text: `- ${feature}`, bullet: { level: 0 } })));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Original Creator Style:", bold: true })], spacing: { before: 200, after: 100 } }));
+      docSections.push(new Paragraph(matchResult.creatorStyle || "N/A"));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Theme Analysis:", bold: true })], spacing: { before: 200, after: 100 } }));
+      docSections.push(new Paragraph(originalAnalysis.theme || "N/A"));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Text Content:", bold: true })], spacing: { before: 200, after: 100 } }));
+      docSections.push(new Paragraph(originalAnalysis.textContent || "N/A"));
+       docSections.push(new Paragraph({ children: [new TextRun({ text: "Visual Elements Detected:", bold: true })], spacing: { before: 200, after: 100 } }));
+      originalAnalysis.visualElements.forEach((element: string) => docSections.push(new Paragraph({ text: `- ${element}`, bullet: { level: 0 } })));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Match Explanation:", bold: true })], spacing: { before: 200, after: 100 } }));
+      docSections.push(new Paragraph(finalMatch.explanation || "N/A"));
+      docSections.push(new Paragraph({ children: [new TextRun({ text: "Confidence Explanation:", bold: true })], spacing: { before: 200, after: 100 } }));
+      docSections.push(new Paragraph(matchResult.explanation || "N/A"));
+
+      // --- Generate Document --- 
+      console.log("Generating document content...");
+      const doc = new Document({
+        sections: [{ 
+          properties: { }, // Add page margins, etc. if needed
+          children: docSections 
+        }],
+        styles: {
+           paragraphStyles: [
+              {
+                  id: "aside",
+                  name: "Aside",
+                  basedOn: "Normal",
+                  next: "Normal",
+                  run: { size: 20, italics: true, color: "555555" },
+                  paragraph: { indent: { left: 720 }, spacing: { line: 276 } },
+              },
+           ]
+        }
+      });
+
+      // --- Save Document ---
+      console.log("Packing document...");
+      const blob = await Packer.toBlob(doc);
+      console.log("Triggering download...");
+      saveAs(blob, "claimx_analysis_report.docx");
+
+    } catch (error) {
+      console.error("Export failed:", error);
+      // Add user feedback here (e.g., toast notification)
+    } finally {
+      setIsExporting(false);
+      console.log("Export finished.");
+    }
+  }
+  // --- End Export Functionality ---
+
   if (isLoading) {
     return (
       <div className="relative min-h-screen flex flex-col bg-transparent">
@@ -383,8 +611,19 @@ function Results() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Upload
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
-                  <Download className="h-4 w-4 mr-1" /> Export
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  {isExporting ? "Exporting..." : "Export"}
                 </Button>
                 <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
                   <Share2 className="h-4 w-4 mr-1" /> Share

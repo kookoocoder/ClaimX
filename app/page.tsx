@@ -206,10 +206,10 @@ export default function Home() {
 
       analysisTimeoutRef.current = window.setTimeout(() => {
         setUploadProgress(5);
-        setUploadStatusText("Uploading image...");
+        setUploadStatusText("Uploading media...");
         analysisTimeoutRef.current = window.setTimeout(() => {
           setUploadProgress(25);
-          setUploadStatusText("Analyzing image content (Agent 1)... ");
+          setUploadStatusText("Analyzing media content (Agent 1)... ");
           analysisTimeoutRef.current = window.setTimeout(() => {
             setUploadProgress(50);
             setUploadStatusText("Matching against dataset (Agent 2)...");
