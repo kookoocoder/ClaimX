@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Upload, X, FileUp, AlertCircle } from "lucide-react"
+import { Upload, X, FileUp, AlertCircle, Shield, Database, Workflow, Sparkles, Lock, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -15,6 +15,7 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import FeatureSection from "@/components/feature-section"
 import { storeImage, fileToDataUrl, storeFileAsDataUrl } from "@/lib/imageStorage"
+import { Badge } from "@/components/ui/badge"
 
 // Helper function for delays
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -30,12 +31,15 @@ export default function Home() {
   const [uploadStatusText, setUploadStatusText] = useState("Uploading...")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const analysisTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const getSession = async () => {
+      setIsLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
+      setIsLoading(false)
     }
 
     getSession()
@@ -228,140 +232,217 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen flex flex-col bg-transparent">
+      <div className="absolute inset-0 bg-slate-900/30 pointer-events-none z-[-5]"></div>
       <Header />
-      <main className="flex-1 flex flex-col pt-28 pb-16">
-        <div className="absolute top-4 right-8">
-          {session ? (
-            <Button
-              variant="outline"
-              className="h-7 rounded-full bg-transparent border border-purple-300/50 hover:bg-purple-500/10 text-purple-200 px-3 text-xs"
-              onClick={handleLogout}
-              aria-label="Logout"
-            >
-              Logged In (Login)
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              className="h-7 rounded-full bg-red-500/20 border border-red-300/30 hover:bg-red-500/30 text-red-200 px-3 text-xs"
-              onClick={handleLoginRedirect}
-              aria-label="Login"
-            >
-              Logged Out (Login)
-            </Button>
-          )}
-        </div>
+      <main className="flex-1 flex flex-col pt-16 pb-16">
 
-        <div className="flex flex-col items-center justify-center w-full px-4 flex-1">
-          <div className="text-center mb-10 relative z-10">
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-200 via-purple-300 to-purple-200 bg-clip-text text-transparent tracking-tight mb-2">
+
+        {/* Hero Section */}
+        <div className="w-full max-w-7xl mx-auto px-4 md:px-6 pt-12 md:pt-20 flex flex-col md:flex-row items-center animate-in fade-in duration-1000">
+          <div className="md:w-1/2 text-center md:text-left mb-10 md:mb-0 relative z-10">
+            <Badge className="mb-4 bg-slate-700/60 hover:bg-slate-700/80 text-slate-100 py-1 px-3 rounded-full text-xs" variant="outline">
+              AI-Powered Digital Attribution
+            </Badge>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-slate-100 tracking-tight mb-4 animate-in slide-in-from-left duration-1000">
               ClaimX
             </h1>
-            <p className="text-xl text-purple-100/90 mt-2">AI-powered meme authorship attribution</p>
+            <p className="text-xl md:text-2xl text-slate-300 mt-2 mb-8 max-w-xl animate-in slide-in-from-left duration-1000 delay-200">
+              Verify content ownership and detect plagiarism with state-of-the-art AI technology.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center mt-8 mb-6 animate-in slide-in-from-bottom duration-1000 delay-300">
+              <Button 
+                className="bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 shadow-sm rounded-full px-8 py-6 text-lg"
+                onClick={() => document.getElementById('upload-card')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Get Started
+              </Button>
+              <Button 
+                variant="outline" 
+                className="bg-transparent text-slate-200 border-slate-600 hover:bg-slate-800/50 rounded-full px-8 py-6 text-lg"
+              >
+                Learn More
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-8 gap-y-3 mt-10 text-slate-400 text-sm animate-in fade-in duration-1000 delay-500">
+              <div className="flex items-center">
+                <Shield className="h-5 w-5 mr-2 text-slate-300" />
+                <span>100% Secure</span>
+              </div>
+              <div className="flex items-center">
+                <Database className="h-5 w-5 mr-2 text-slate-300" />
+                <span>Vast Content Library</span>
+              </div>
+              <div className="flex items-center">
+                <Workflow className="h-5 w-5 mr-2 text-slate-300" />
+                <span>Real-Time Results</span>
+              </div>
+            </div>
           </div>
           
-          <Card className="w-full max-w-2xl shadow-xl border-0 rounded-xl bg-white/40 relative overflow-hidden backdrop-blur-md mx-auto transform transition-all mt-64 mb-1">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-white/30 to-white/10 pointer-events-none"></div>
-            <div className="absolute -inset-1 bg-gradient-to-b from-white/30 to-transparent rounded-xl blur-sm"></div>
-            <CardHeader className="text-center pb-2 relative z-10">
-              <div className="mx-auto mb-4 w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center shadow-md">
-                <FileUp className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="text-2xl font-bold text-gray-800">
-                Upload your meme
-              </CardTitle>
-              <CardDescription className="text-gray-500 mt-1">We'll determine its rightful creator</CardDescription>
-            </CardHeader>
-            <CardContent className="pb-3 relative z-10">
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div
-                className={`relative mt-1 rounded-xl border-2 border-dashed p-6 transition-all duration-200 ease-in-out backdrop-blur-md overflow-hidden ${
-                  isDragging
-                    ? "border-purple-400 bg-purple-50"
-                    : file
-                      ? "border-purple-300 bg-white/50"
-                      : "border-gray-300 hover:border-purple-400 bg-white/40"
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/20 to-transparent pointer-events-none"></div>
-                <div className="flex flex-col items-center justify-center gap-2 text-center relative z-10">
-                  {!file ? (
-                    <>
-                      <Upload className={`h-10 w-10 ${isDragging ? "text-purple-500" : "text-gray-400"}`} />
-                      <div className="flex flex-col items-center">
-                        <p className="text-sm font-medium text-gray-700">Drag & drop your meme here</p>
-                        <p className="text-xs text-gray-500">or</p>
-                        <label
-                          htmlFor="file-upload"
-                          className="mt-1 cursor-pointer rounded-md bg-white px-3 py-1 text-xs font-semibold text-purple-500 shadow-sm ring-1 ring-inset ring-purple-200 hover:bg-purple-50"
-                        >
-                          Choose file
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">(Max file size: 10 MB)</p>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center w-full pt-6">
-                      <div className="relative w-full max-w-[300px] aspect-square mb-3">
-                        <Image
-                          src={previewUrl || "/placeholder.svg"}
-                          alt="Preview"
-                          fill
-                          className="object-contain rounded-md"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between w-full bg-white/70 rounded-md p-2 shadow-sm border border-white/50">
-                        <div className="truncate flex-1 mr-3">
-                          <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={removeFile}
-                          className="h-8 w-8 text-gray-500 hover:text-red-500"
-                          aria-label="Remove file"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+          <div id="upload-card" className="md:w-1/2 relative animate-in fade-in slide-in-from-right duration-1000 delay-200">
+            <Card className="w-full shadow-xl border-0 rounded-xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 transition-all overflow-hidden">
+              <CardHeader className="text-center pb-4 relative z-10 border-b border-slate-700/30">
+                <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-slate-700/80 to-slate-900/80 rounded-2xl flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110">
+                  <FileUp className="h-8 w-8 text-slate-200" />
                 </div>
-                <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
-              </div>
+                <CardTitle className="text-2xl font-bold text-slate-100 mb-2">
+                  {isLoading ? "Loading..." : session ? "Upload your content" : "Login Required"}
+                </CardTitle>
+                <CardDescription className="text-slate-300 mt-1 mb-1 text-base">
+                  {isLoading ? "Please wait..." : session 
+                    ? "We'll determine its rightful creator with our AI technology" 
+                    : "Please login to use our plagiarism detection tool"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-3 relative z-10 pt-6">
+                {error && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
 
-              {isUploading && (
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs mb-1 font-medium text-gray-600">
-                    <span>{uploadStatusText}</span>
-                    <span>{uploadProgress}%</span>
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-slate-300"></div>
                   </div>
-                  <Progress value={uploadProgress} className="h-2" aria-label="Upload progress" />
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="relative z-10">
-              <Button
-                className="w-full bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-md relative overflow-hidden group px-6 py-3 text-base font-medium"
-                disabled={!file || isUploading}
-                onClick={handleAnalyze}
-              >
-                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                <span className="relative z-10">{isUploading ? "Analyzing..." : "Analyze Meme"}</span>
-              </Button>
-            </CardFooter>
-          </Card>
+                ) : session ? (
+                  <>
+                    <div
+                      className={`relative mt-1 rounded-xl border-2 border-dashed p-6 transition-all duration-300 ease-in-out backdrop-blur-sm overflow-hidden ${
+                        isDragging
+                          ? "border-slate-400 bg-slate-700/30 scale-[1.01]"
+                          : file
+                            ? "border-slate-600/70 bg-slate-800/30"
+                            : "border-slate-600/50 hover:border-slate-500/70 bg-slate-800/20 hover:bg-slate-800/30"
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2 text-center relative z-10">
+                        {!file ? (
+                          <>
+                            <div className="p-4 rounded-full bg-slate-700/40 mb-3 shadow-lg transform transition-all duration-300 hover:scale-110">
+                              <Upload className={`h-8 w-8 ${isDragging ? "text-slate-300" : "text-slate-400"}`} />
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <p className="text-base font-medium text-slate-200">Drag & drop your content here</p>
+                              <p className="text-sm text-slate-400 mb-2">or</p>
+                              <label
+                                htmlFor="file-upload"
+                                className="mt-1 cursor-pointer rounded-lg bg-gradient-to-br from-slate-700/70 to-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-200 shadow-lg ring-1 ring-inset ring-slate-600/50 hover:bg-slate-700/60 transition-all duration-300 hover:shadow-xl hover:scale-105"
+                              >
+                                Choose file
+                              </label>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-4">(Max file size: 10 MB)</p>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center w-full pt-3">
+                            <div className="relative w-full max-w-[320px] aspect-square mb-5 overflow-hidden rounded-lg shadow-lg border border-slate-700/50">
+                              <Image
+                                src={previewUrl || "/placeholder.svg"}
+                                alt="Preview"
+                                fill
+                                className="object-contain rounded-lg"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between w-full bg-slate-800/40 backdrop-blur-sm rounded-lg p-4 shadow-md border border-slate-700/50">
+                              <div className="truncate flex-1 mr-3">
+                                <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
+                                <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={removeFile}
+                                className="h-8 w-8 text-slate-400 hover:text-red-400 transition-colors"
+                                aria-label="Remove file"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+                    </div>
+
+                    {isUploading && (
+                      <div className="mt-6">
+                        <div className="flex justify-between text-xs mb-2 font-medium text-slate-300">
+                          <span>{uploadStatusText}</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <Progress value={uploadProgress} className="h-2.5 bg-slate-700/30" aria-label="Upload progress" />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="p-4 rounded-full bg-slate-700/40 mb-5 shadow-lg">
+                      <Lock className="h-8 w-8 text-slate-300" />
+                    </div>
+                    <p className="text-slate-300 mb-6 text-center max-w-md">
+                      You need to be logged in to use our plagiarism detection tool. Login to access all features and start analyzing your content.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="relative z-10 border-t border-slate-700/30 p-6">
+                {isLoading ? (
+                  <Button 
+                    className="w-full bg-slate-700/60 text-slate-400 cursor-not-allowed shadow-lg h-12 text-base rounded-lg"
+                    disabled
+                  >
+                    Loading...
+                  </Button>
+                ) : session ? (
+                  <Button
+                    className="w-full bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-sm hover:from-slate-600/80 hover:to-slate-700/80 text-white shadow-lg h-12 text-base rounded-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px]"
+                    disabled={!file || isUploading}
+                    onClick={handleAnalyze}
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    <span className="relative z-10">{isUploading ? "Analyzing..." : "Analyze Content"}</span>
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-sm hover:from-slate-600/80 hover:to-slate-700/80 text-white shadow-lg h-12 text-base rounded-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px]"
+                    onClick={handleLoginRedirect}
+                  >
+                    <LogIn className="mr-2 h-5 w-5" />
+                    <span className="relative z-10">Login to Continue</span>
+                  </Button>
+                )}
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+        
+        {/* Stats Section */}
+        <div className="w-full max-w-7xl mx-auto px-4 md:px-6 mt-20 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-500">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-12">
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-4xl md:text-5xl font-bold text-slate-100 mb-2">99%</div>
+              <p className="text-slate-400 text-sm">Detection Accuracy</p>
+            </div>
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-4xl md:text-5xl font-bold text-slate-100 mb-2">5M+</div>
+              <p className="text-slate-400 text-sm">Content Analyzed</p>
+            </div>
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-4xl md:text-5xl font-bold text-slate-100 mb-2">3s</div>
+              <p className="text-slate-400 text-sm">Average Analysis Time</p>
+            </div>
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-4xl md:text-5xl font-bold text-slate-100 mb-2">24/7</div>
+              <p className="text-slate-400 text-sm">System Availability</p>
+            </div>
+          </div>
         </div>
         
         <FeatureSection />
