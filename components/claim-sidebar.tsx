@@ -62,7 +62,12 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
       // Update state with the email content
       if (emailData.subject && emailData.body) {
         setSubject(emailData.subject)
-        setBody(emailData.body)
+        
+        // Add instructions about the image attachment
+        const imageNote = "\n\n[IMPORTANT: I have attached the image in question to this email. The analysis performed by ClaimX confirms a plagiarism score of " + 
+          (finalMatch?.similarityScore || "high") + "% match to the original content.]\n";
+        
+        setBody(emailData.body + imageNote)
         
         // If there was an error but we have fallback content, show a warning
         if (emailData._error) {
@@ -84,6 +89,9 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
   }
 
   const handleSend = () => {
+    // Get the image from local storage for attachment reminder
+    const uploadedImage = localStorage.getItem("uploadedImageData") || localStorage.getItem("uploadedImage")
+    
     // Open Gmail compose window with prefilled draft
     const to = "ip@instagram.com"
     const su = encodeURIComponent(subject)
@@ -93,9 +101,19 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
     
     toast({
       title: "Email draft opened",
-      description: "A new email has been prepared in your browser",
+      description: "Remember to manually attach your image before sending",
       variant: "default",
     })
+    
+    // Show additional detailed toast with instructions
+    setTimeout(() => {
+      toast({
+        title: "Attachment reminder",
+        description: "Gmail can't automatically attach files. Please manually add your uploaded image to the email before sending.",
+        variant: "default",
+        duration: 6000,
+      })
+    }, 500)
     
     setOpen(false)
   }
@@ -209,8 +227,16 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
               Send to Instagram Support
             </Button>
           </SheetFooter>
+          
+          <div className="mt-4 text-xs text-slate-400 border-t border-slate-700/30 pt-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-3 w-3 mr-2 text-amber-400" />
+              <span>Important: You'll need to manually attach your image to the email before sending.</span>
+            </div>
+          </div>
         </motion.div>
       </SheetContent>
     </Sheet>
   )
 }
+
