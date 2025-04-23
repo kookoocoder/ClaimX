@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail, Loader2 } from "lucide-react"
+import { ArrowLeft, User, Calendar, Hash, Info, Download, Share2, Link, Mail, Loader2, Copy, FileSearch } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -759,8 +759,11 @@ function Results() {
                             <h3 className="text-lg font-semibold mb-3 text-slate-100">Plagiarism Details</h3>
                             <div className="space-y-4">
                               <div className="flex items-center gap-3">
-                                <div className="bg-amber-900/30 p-2 rounded-full">
-                                  <Percent className="h-4 w-4 text-amber-400" />
+                                <div className="bg-gradient-to-br from-amber-900/40 to-amber-700/30 p-2.5 rounded-full shadow-lg shadow-amber-900/10 border border-amber-600/20 backdrop-blur-sm transition-all duration-300 hover:scale-105">
+                                  <Copy className={`h-5 w-5 drop-shadow-sm ${
+                                    plagiarismScore > 90 ? "text-red-400" : 
+                                    plagiarismScore > 70 ? "text-yellow-400" : "text-green-400"
+                                  }`} />
                                 </div>
                                 <div>
                                   <p className="text-xs font-medium text-slate-400">Plagiarism Type</p>
@@ -777,11 +780,23 @@ function Results() {
                                 </div>
                               </div>
 
-                              <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50">
-                                <p className="text-sm text-slate-300">
-                                  {analysisResult.originalAnalysis.description || 
-                                    "This content has been analyzed against our database to detect potential plagiarism."}
-                                </p>
+                              <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-lg border border-slate-700/50 shadow-md">
+                                <p className="text-sm font-medium text-slate-200 mb-2">Plagiarism Assessment</p>
+                                <div className="prose prose-sm max-w-none text-slate-300 prose-headings:text-slate-200 prose-strong:text-slate-200">
+                                  <ReactMarkdown>
+                                    {analysisResult.originalAnalysis.description || 
+                                      `## Key Findings
+                                      
+* **Plagiarism Level**: ${plagiarismScore > 90 ? "**Direct Copy**" : plagiarismScore > 70 ? "**Substantial Plagiarism**" : "**Minor Plagiarism**"}
+* **Similarity**: ${plagiarismScore}% match to original
+${analysisResult.matchResult.features?.length > 0 ? 
+`* **Plagiarized Elements**:
+  * ${analysisResult.matchResult.features[0] || "Visual composition matches original"}
+  ${analysisResult.matchResult.features[1] ? `* ${analysisResult.matchResult.features[1]}` : ''}
+  ${analysisResult.matchResult.features[2] ? `* ${analysisResult.matchResult.features[2]}` : ''}` : 
+`* **Detected Pattern**: Similar visual composition and style`}`}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             </div>
                           </div>
