@@ -93,21 +93,21 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader className="pb-4">
-          <SheetTitle className="flex items-center gap-2">
+      <SheetContent className="sm:max-w-md bg-slate-900 text-slate-200 border border-slate-800 p-6 rounded-lg shadow-lg">
+        <SheetHeader className="pb-4 border-b border-slate-800 mb-4">
+          <SheetTitle className="flex items-center gap-2 text-lg font-semibold">
             <Mail className="h-5 w-5" />
             Copyright Claim Email
           </SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-slate-400 text-sm">
             Create a professional copyright claim email to send to Instagram.
           </SheetDescription>
         </SheetHeader>
 
         {error && (
-          <div className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <div className="text-sm text-muted-foreground">{error}</div>
+          <div className="mb-4 flex items-center gap-2 text-red-400">
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <div className="text-sm">{error}</div>
           </div>
         )}
 
@@ -115,14 +115,14 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
           <div className="space-y-2">
             <Label htmlFor="subject">Subject</Label>
             {isGenerating ? (
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full bg-slate-800" />
             ) : (
               <Input
                 id="subject"
                 placeholder="Email subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="resize-none"
+                className="resize-none bg-slate-800 text-slate-200 placeholder-slate-400 border border-slate-700"
               />
             )}
           </div>
@@ -131,7 +131,7 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
             <Label htmlFor="body">Email Content</Label>
             {isGenerating ? (
               <div className="space-y-2">
-                <Skeleton className="h-[200px] w-full" />
+                <Skeleton className="h-[200px] w-full bg-slate-800" />
                 <div className="text-sm text-muted-foreground animate-pulse">
                   Generating email content...
                 </div>
@@ -142,15 +142,16 @@ export function ClaimSidebar({ open, setOpen, originalAnalysis, finalMatch }: Cl
                 placeholder="Email content"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                className="min-h-[200px] resize-none"
+                className="min-h-[200px] resize-none bg-slate-800 text-slate-200 placeholder-slate-400 border border-slate-700"
               />
             )}
           </div>
         </div>
 
-        <SheetFooter className="pt-2">
+        <SheetFooter className="pt-4 border-t border-slate-800 flex justify-end gap-2">
           <Button
             variant="outline"
+            className="border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
             onClick={generateClaimEmail}
             disabled={isGenerating}
           >

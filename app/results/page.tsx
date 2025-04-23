@@ -317,6 +317,9 @@ export default function Results() {
                 <Button variant="outline" size="sm" className="bg-slate-800/40 border-slate-700/50 text-slate-200 hover:bg-slate-700/50 hover:text-white">
                   <Share2 className="h-4 w-4 mr-1" /> Share
                 </Button>
+                <Button variant="destructive" size="sm" className="bg-red-600 text-white hover:bg-red-700" onClick={() => setIsClaimOpen(true)}>
+                  <Mail className="h-4 w-4 mr-1" /> Send Claim
+                </Button>
               </div>
             </div>
 
@@ -629,6 +632,14 @@ ${analysisResult.matchResult.features?.length > 0 ?
           </motion.div>
         </div>
       </main>
+      {analysisResult && (
+        <ClaimSidebar
+          open={isClaimOpen}
+          setOpen={setIsClaimOpen}
+          originalAnalysis={analysisResult.originalAnalysis}
+          finalMatch={analysisResult.finalMatch}
+        />
+      )}
       <Footer />
     </div>
   )
