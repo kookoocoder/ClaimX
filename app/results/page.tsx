@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { ArrowLeft, User, Calendar, Hash, Percent, Info, Download, Share2, Link, Mail } from "lucide-react"
@@ -33,6 +33,14 @@ interface FinalMatch {
   postLink: string;
   explanation: string;
   similarityScore: number;
+}
+
+interface PlagiarismRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
 }
 
 interface AnalysisResult {
@@ -97,7 +105,34 @@ const ImageWithFallback = ({
   );
 };
 
-export default function Results() {
+// Results component wrapper with Suspense
+function ResultsPage() {
+  return (
+    <Suspense fallback={<LoadingUI />}>
+      <Results />
+    </Suspense>
+  )
+}
+
+// Loading UI component
+function LoadingUI() {
+  return (
+    <div className="relative min-h-screen flex flex-col bg-transparent">
+      <div className="absolute inset-0 bg-slate-900/30 pointer-events-none z-[-5]"></div>
+      <main className="flex-1 flex flex-col pt-20 pb-16">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="w-full max-w-7xl mx-auto">
+            <div className="flex items-center justify-center h-[70vh]">
+              <p className="text-xl text-slate-300">Loading results...</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function Results() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoaded, setIsLoaded] = useState(false)
@@ -644,3 +679,6 @@ ${analysisResult.matchResult.features?.length > 0 ?
     </div>
   )
 }
+
+// Export the wrapper component instead
+export default ResultsPage;

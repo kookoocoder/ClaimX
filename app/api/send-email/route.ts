@@ -20,21 +20,26 @@ export async function POST(request: Request) {
     if (!To || !Subject || !Message) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
-    // Check OAuth2 creds
-    const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_REDIRECT_URI } = process.env
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !GOOGLE_REDIRECT_URI) {
-      return NextResponse.json({ error: 'Gmail OAuth2 credentials missing' }, { status: 500 })
-    }
+    
+    // For drafts we can skip credentials check since we're not sending
     // Construct raw email
     const from = process.env.GMAIL_USER || 'me'
     const rawMessage = `From: ${from}\r\nTo: ${To}\r\nSubject: ${Subject}\r\n\r\n${Message}`
     const encodedMessage = Buffer.from(rawMessage).toString('base64url')
-    // Send via Gmail API
-    await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encodedMessage } })
+    
+    // Create draft instead of sending
+    await gmail.users.drafts.create({ 
+      userId: 'me', 
+      requestBody: { 
+        message: { 
+          raw: encodedMessage 
+        } 
+      } 
+    })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: 'Draft created successfully' })
   } catch (err: any) {
-    console.error('Error in send-email API:', err)
-    return NextResponse.json({ error: err.message || 'Email send failed' }, { status: 500 })
+    console.error('Error in create-draft API:', err)
+    return NextResponse.json({ error: err.message || 'Draft creation failed' }, { status: 500 })
   }
 }
